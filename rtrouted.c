@@ -79,6 +79,33 @@ rtRouted_PrintMessage(rtMessageHeader* hdr, uint8_t* buff, int n)
   return RT_OK;
 }
 
+static rtError
+rtRouted_OnMessage(rtMessageHeader* hdr, uint8_t* buff, int n)
+{
+  if (strcmp(hdr->topic, "_RTROUTED.INBOX.SUBSCRIBE") == 0)
+  {
+    char* expression = NULL;
+    int32_t route_id = 0;
+
+    rtMessage m;
+    rtMessage_CreateFromBytes(&m, buff, n);
+    rtMessage_GetFieldString(m, "topic", &expression);
+    rtMessage_GetFieldInt32(m, "route_id", &route_id);
+    rtMessage_Destroy(m);
+  }
+  else if (strcmp(hdr->topic, "_RTROUTED.INBOX.HELLO") == 0)
+  {
+    rtMessage m;
+    rtMessage_CreateFromBytes(&m, buff, n);
+    rtMessage_Destroy(m);
+  }
+  else
+  {
+    rtLogInfo("no handler for message:%s", hdr->topic);
+  }
+  return RT_OK;
+}
+
 static int
 rtRouted_IsTopicMatch(char const* topic, char const* exp)
 {
@@ -402,6 +429,11 @@ int main(int argc, char* argv[])
   rtLogSetLevel(RT_LOG_DEBUG);
   rtLogSetLogHandler(NULL);
 
+  routes[0].closure = NULL;
+  routes[0].in_use = 1;
+  strcpy(routes[0].expression, "_RTROUTED.>");
+  routes[0].message_handler = rtRouted_OnMessage;
+
   while (1)
   {
     int option_index = 0;
@@ -431,10 +463,10 @@ int main(int argc, char* argv[])
         break;
       case 'r':
       {
-        routes[0].closure = NULL;
-        routes[0].in_use = 1;
-        strcpy(routes[0].expression, ">");
-        routes[0].message_handler = &rtRouted_PrintMessage;
+        routes[1].closure = NULL;
+        routes[1].in_use = 1;
+        strcpy(routes[1].expression, ">");
+        routes[1].message_handler = &rtRouted_PrintMessage;
       }
       case '?':
         break;

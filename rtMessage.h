@@ -44,7 +44,7 @@ rtMessage_CreateCopy(const rtMessage message, rtMessage* copy);
  * @return rtError
  **/
 rtError
-rtMessage_CreateFromBytes(rtMessage* message, const void* bytes);
+rtMessage_CreateFromBytes(rtMessage* message, uint8_t const* buff, int n);
 
 /**
  * Destroy a message; free the storage that it occupies.
@@ -107,7 +107,7 @@ rtError rtMessage_GetFieldString(rtMessage const m, char const* name, char** val
  * @param pointer to integer value obtained.
  * @return rtError
  **/
-rtError rtMessage_GetFieldInt(rtMessage const m, char const* name, int** value);
+rtError rtMessage_GetFieldInt32(rtMessage const m, char const* name, int32_t* value);
 
 /**
  * Get field value of type double using field name.

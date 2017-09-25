@@ -67,8 +67,10 @@ rtMessage_CreateCopy(const rtMessage message,rtMessage* copy)
  * @return rtError
  **/
 rtError
-rtMessage_CreateFromBytes(rtMessage* message, const void* bytes)
+rtMessage_CreateFromBytes(rtMessage* message, uint8_t const* bytes, int n)
 {
+  (void) n;
+
   *message = (rtMessage) malloc(sizeof(struct _rtMessage));
   if (message)
   {
@@ -184,12 +186,12 @@ rtMessage_GetFieldString(rtMessage const  message,const char* name,char** value)
  * @return rtError
  **/
 rtError
-rtMessage_GetFieldInt(rtMessage const message,const char* name,int** value)
+rtMessage_GetFieldInt32(rtMessage const message,const char* name, int32_t* value)
 {  
   cJSON* p = cJSON_GetObjectItem(message->json, name);
   if (p)
   {
-    *value = &p->valueint;
+    *value = p->valueint;
     return RT_OK;
   }
   return RT_FAIL;
