@@ -112,7 +112,7 @@ rtMessage_GetFieldString(rtMessage const m, char const* name, char** value);
  * @return rtError
  **/
 rtError
- rtMessage_GetFieldInt32(rtMessage const m, char const* name, int32_t* value);
+rtMessage_GetFieldInt32(rtMessage const m, char const* name, int32_t* value);
 
 /**
  * Get field value of type double using field name.

@@ -136,7 +136,6 @@ rtMessage_ConvertToString(rtMessage const m, char** s, uint32_t* n)
 void
 rtMessage_AddFieldString(rtMessage message, char const* name, char const* value)
 {
-   message = (rtMessage) malloc(sizeof(struct _rtMessage));
    cJSON_AddItemToObject(message->json, name, cJSON_CreateString(value));
 }
 
@@ -192,6 +191,7 @@ rtMessage_GetFieldString(rtMessage const  message,const char* name,char** value)
  * @param pointer to integer value obtained.
  * @return rtError
  **/
+rtError
 rtMessage_GetFieldInt32(rtMessage const message,const char* name, int32_t* value)
 {  
   cJSON* p = cJSON_GetObjectItem(message->json, name);
