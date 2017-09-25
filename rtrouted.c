@@ -45,6 +45,7 @@ typedef struct
   int                       fd;
   struct sockaddr_storage   endpoint;
   uint8_t*                  read_buffer;
+  uint8_t*                  send_buffer;
   rtConnectionState         state;
   int                       bytes_read;
   int                       bytes_to_read;
@@ -53,10 +54,19 @@ typedef struct
 
 typedef struct
 {
-  void* closure;
-  rtError (*message_handler)(rtMessageHeader* hdr, uint8_t* buff, int n);
-  char expression[RTMSG_MAX_EXPRESSION_LEN];
-  int in_use;
+  uint32_t id;
+  rtConnectedClient* client;
+} rtSubscription;
+
+typedef rtError (*rtRouteMessageHandler)(rtConnectedClient* sender, rtMessageHeader* hdr,
+  uint8_t const* buff, int n, void* closure);
+
+typedef struct
+{
+  void*                 closure;
+  rtRouteMessageHandler message_handler;
+  char                  expression[RTMSG_MAX_EXPRESSION_LEN];
+  int                   in_use;
 } rtRouteEntry;
 
 typedef struct
@@ -70,20 +80,59 @@ rtConnectedClient clients[RTMSG_MAX_CONNECTED_CLIENTS];
 rtListener        listeners[RTMSG_MAX_LISTENERS];
 rtRouteEntry      routes[RTMSG_MAX_ROUTES];
 
+static rtError
+rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n, void* closure)
+{
+  rtSubscription* subscription;
+  ssize_t         bytes_sent;
+
+  (void) sender;
+
+  subscription = (rtSubscription *) closure;
+
+  rtMessageHeader new_header;
+  new_header.version = hdr->version;
+  new_header.length = hdr->length;
+  new_header.flags = subscription->id;
+  new_header.payload_length = hdr->payload_length;
+  new_header.topic_length = hdr->topic_length;
+  strcpy(new_header.topic, hdr->topic);
+  rtMessageHeader_Encode(&new_header, subscription->client->send_buffer);
+
+  // TODO: error check
+  bytes_sent = send(subscription->client->fd, subscription->client->send_buffer, new_header.length, 0);
+  if (bytes_sent = -1)
+  {
+  }
+
+  bytes_sent = send(subscription->client->fd, buff, n, 0);
+  if (bytes_sent == -1)
+  {
+  }
+
+  return RT_OK;
+}
+
 static rtError 
-rtRouted_PrintMessage(rtMessageHeader* hdr, uint8_t* buff, int n)
+rtRouted_PrintMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n, void* closure)
 {
   (void) hdr;
+  (void) closure;
+  (void) sender;
+
   printf("message debug\n");
   printf("'%.*s'\n", n, (char *) buff);
   return RT_OK;
 }
 
 static rtError
-rtRouted_OnMessage(rtMessageHeader* hdr, uint8_t* buff, int n)
+rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n, void* closure)
 {
+  (void) closure;
+
   if (strcmp(hdr->topic, "_RTROUTED.INBOX.SUBSCRIBE") == 0)
   {
+    int i;
     char* expression = NULL;
     int32_t route_id = 0;
 
@@ -92,6 +141,25 @@ rtRouted_OnMessage(rtMessageHeader* hdr, uint8_t* buff, int n)
     rtMessage_GetFieldString(m, "topic", &expression);
     rtMessage_GetFieldInt32(m, "route_id", &route_id);
     rtMessage_Destroy(m);
+
+    for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
+    {
+      if (!routes[i].in_use)
+        break;
+    }
+
+    // register a "subscription" for client
+    if (i < RTMSG_MAX_ROUTES)
+    {
+      rtSubscription* subscription = (rtSubscription *) malloc(sizeof(rtSubscription));
+      subscription->id = route_id;
+      subscription->client = sender;
+
+      routes[i].in_use = 1;
+      routes[i].closure = subscription;
+      strcpy(routes[i].expression, expression);
+      routes[i].message_handler = &rtRouted_ForwardMessage;
+    }
   }
   else if (strcmp(hdr->topic, "_RTROUTED.INBOX.HELLO") == 0)
   {
@@ -149,11 +217,12 @@ rtConnectedClient_Init(rtConnectedClient* clnt, int fd, struct sockaddr_storage*
   clnt->bytes_read = 0;
   clnt->bytes_to_read = 4;
   clnt->read_buffer = (uint8_t *) malloc(RTMSG_CLIENT_READ_BUFFER_SIZE);
+  clnt->send_buffer = (uint8_t *) malloc(RTMSG_CLIENT_READ_BUFFER_SIZE);
   memcpy(&clnt->endpoint, remote_endpoint, sizeof(struct sockaddr_storage));
 }
 
 static void
-rtRouter_DispatchMessage(rtMessageHeader* hdr, uint8_t* buff, int n)
+rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt) // rtMessageHeader* hdr, uint8_t* buff, int n)
 {
   int i;
   
@@ -162,8 +231,11 @@ rtRouter_DispatchMessage(rtMessageHeader* hdr, uint8_t* buff, int n)
     if (!routes[i].in_use)
       break;
 
-    if (rtRouted_IsTopicMatch(hdr->topic, routes[i].expression))
-      routes[i].message_handler(hdr, buff, n);
+    if (rtRouted_IsTopicMatch(clnt->header.topic, routes[i].expression))
+    {
+      routes[i].message_handler(clnt, &clnt->header, clnt->read_buffer +
+          clnt->header.length, clnt->header.payload_length, routes[i].closure);
+    }
   }
 }
 
@@ -174,6 +246,8 @@ rtConnectedClient_Destroy(rtConnectedClient* clnt)
   clnt->fd = RTMSG_INVALID_FD;
   if (clnt->read_buffer)
     free(clnt->read_buffer);
+  if (clnt->send_buffer)
+    free(clnt->send_buffer);
 
 #if 0
   for (i = 0; i < RTMSG_CLIENT_MAX_TOPICS; ++i)
@@ -240,8 +314,8 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
     {
       if (clnt->bytes_read == clnt->bytes_to_read)
       {
-        rtRouter_DispatchMessage(&clnt->header, clnt->read_buffer + clnt->header.length,
-          clnt->header.payload_length);
+        rtRouter_DispatchMessageFromClient(clnt); // &clnt->header, clnt->read_buffer + clnt->header.length,
+//          clnt->header.payload_length);
         clnt->bytes_to_read = 4;
         clnt->bytes_read = 0;
         clnt->state = rtConnectionState_ReadHeaderPreamble;
