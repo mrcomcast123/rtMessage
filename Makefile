@@ -9,6 +9,7 @@ RTMSG_SRCS=\
   rtSocket.c \
   rtConnection.c \
   rtMessageHeader.c \
+  rtDebug.c \
   rtMessage.c
 
 RTROUTER_SRCS=rtrouted.c

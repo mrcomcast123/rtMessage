@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "rtConnection.h"
+#include "rtDebug.h"
 #include "rtLog.h"
 #include "rtEncoder.h"
 #include "rtError.h"
@@ -81,6 +82,28 @@ rtListener        listeners[RTMSG_MAX_LISTENERS];
 rtRouteEntry      routes[RTMSG_MAX_ROUTES];
 
 static rtError
+rtRouted_AddRoute(rtRouteMessageHandler handler, char* exp, void* closure)
+{
+  int i;
+  for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
+  {
+    if (!routes[i].in_use)
+      break;
+  }
+
+  if (i >= RTMSG_MAX_ROUTES)
+    return rtErrorFromErrno(ENOMEM);
+
+  routes[i].in_use = 1;
+  routes[i].closure = closure;
+  routes[i].message_handler = handler;
+  strcpy(routes[i].expression, exp);
+
+  return RT_OK;
+}
+
+
+static rtError
 rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n, void* closure)
 {
   rtSubscription* subscription;
@@ -91,23 +114,30 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   subscription = (rtSubscription *) closure;
 
   rtMessageHeader new_header;
+  rtMessageHeader_Init(&new_header);
   new_header.version = hdr->version;
   new_header.length = hdr->length;
-  new_header.flags = subscription->id;
+  new_header.sequence_number = hdr->sequence_number;
+  new_header.control_data = subscription->id;
   new_header.payload_length = hdr->payload_length;
   new_header.topic_length = hdr->topic_length;
   strcpy(new_header.topic, hdr->topic);
   rtMessageHeader_Encode(&new_header, subscription->client->send_buffer);
 
-  // TODO: error check
+  // rtDebug_PrintBuffer("fwd header", subscription->client->send_buffer, new_header.length);
+
+  // TODO: handle client disconnect here
+
   bytes_sent = send(subscription->client->fd, subscription->client->send_buffer, new_header.length, 0);
-  if (bytes_sent = -1)
+  if (bytes_sent == -1)
   {
+    rtLogWarn("error forwarding message to client. %s", strerror(errno));
   }
 
   bytes_sent = send(subscription->client->fd, buff, n, 0);
   if (bytes_sent == -1)
   {
+    rtLogWarn("error fowarding message to client. %s", strerror(errno));
   }
 
   return RT_OK;
@@ -132,7 +162,6 @@ rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t cons
 
   if (strcmp(hdr->topic, "_RTROUTED.INBOX.SUBSCRIBE") == 0)
   {
-    int i;
     char* expression = NULL;
     int32_t route_id = 0;
 
@@ -140,31 +169,29 @@ rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t cons
     rtMessage_CreateFromBytes(&m, buff, n);
     rtMessage_GetFieldString(m, "topic", &expression);
     rtMessage_GetFieldInt32(m, "route_id", &route_id);
+
+    rtSubscription* subscription = (rtSubscription *) malloc(sizeof(rtSubscription));
+    subscription->id = route_id;
+    subscription->client = sender;
+    rtRouted_AddRoute(rtRouted_ForwardMessage, expression, subscription);
+
     rtMessage_Destroy(m);
-
-    for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
-    {
-      if (!routes[i].in_use)
-        break;
-    }
-
-    // register a "subscription" for client
-    if (i < RTMSG_MAX_ROUTES)
-    {
-      rtSubscription* subscription = (rtSubscription *) malloc(sizeof(rtSubscription));
-      subscription->id = route_id;
-      subscription->client = sender;
-
-      routes[i].in_use = 1;
-      routes[i].closure = subscription;
-      strcpy(routes[i].expression, expression);
-      routes[i].message_handler = &rtRouted_ForwardMessage;
-    }
   }
   else if (strcmp(hdr->topic, "_RTROUTED.INBOX.HELLO") == 0)
   {
+    char* appname = NULL;
+    char inbox_name[256];
+
     rtMessage m;
     rtMessage_CreateFromBytes(&m, buff, n);
+    rtMessage_GetFieldString(m, "appname", &appname);
+    snprintf(inbox_name, sizeof(inbox_name), "%s.INBOX", appname);
+
+    rtSubscription* subscription = (rtSubscription *) malloc(sizeof(rtSubscription));
+    subscription->id = 0;
+    subscription->client = sender;
+    rtRouted_AddRoute(rtRouted_ForwardMessage, inbox_name, subscription);
+
     rtMessage_Destroy(m);
   }
   else
@@ -179,6 +206,7 @@ rtRouted_IsTopicMatch(char const* topic, char const* exp)
 {
   char const* t = topic;
   char const* e = exp;
+
 
   while (*t && *e)
   {
@@ -206,6 +234,7 @@ rtRouted_IsTopicMatch(char const* topic, char const* exp)
     e++;
   }
 
+  // rtLogInfo("match[%d]: %s <> %s", !(*t || *e), topic, exp);
   return !(*t || *e);
 }
 
@@ -225,7 +254,6 @@ static void
 rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt) // rtMessageHeader* hdr, uint8_t* buff, int n)
 {
   int i;
-  
   for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
   {
     if (!routes[i].in_use)
@@ -248,17 +276,6 @@ rtConnectedClient_Destroy(rtConnectedClient* clnt)
     free(clnt->read_buffer);
   if (clnt->send_buffer)
     free(clnt->send_buffer);
-
-#if 0
-  for (i = 0; i < RTMSG_CLIENT_MAX_TOPICS; ++i)
-  {
-    if (clnt->subscriptions[i].topic)
-      free(clnt->subscriptions[i].topic);
-    clnt->subscriptions[i].id = -1;
-    clnt->subscriptions[i].topic = NULL;
-  }
-#endif
-
 }
 
 static void
@@ -319,6 +336,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
         clnt->bytes_to_read = 4;
         clnt->bytes_read = 0;
         clnt->state = rtConnectionState_ReadHeaderPreamble;
+        rtMessageHeader_Init(&clnt->header);
       }
     }
     break;
@@ -571,7 +589,7 @@ int main(int argc, char* argv[])
     max_fd= -1;
     FD_ZERO(&read_fds);
     FD_ZERO(&err_fds);
-    timeout.tv_sec = 1;
+    timeout.tv_sec = 10;
     timeout.tv_usec = 0;
 
     for (i = 0; i < RTMSG_MAX_LISTENERS; ++i)

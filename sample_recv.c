@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "rtConnection.h"
+#include "rtLog.h"
 #include "rtMessage.h"
 
 #include <stdio.h>
@@ -22,14 +23,16 @@
 void onMessage(rtMessage m, void* closure)
 {
   char* s;
+  char topic[128];
   uint32_t n;
 
   (void) closure;
 
+  rtMessage_GetSendTopic(m, topic);
   rtMessage_ConvertToString(m, &s, &n);
-  printf("new message\n");
-  printf("%.*s\n", n, s);
-  printf("\n");
+
+  rtLogInfo("TOPIC:%s", topic);
+  rtLogInfo("\t%.*s", n, s);
   free(s);
 }
 
@@ -37,13 +40,14 @@ int main()
 {
   rtError err;
   rtConnection con;
+
+  rtLogSetLevel(RT_LOG_INFO);
   rtConnection_Create(&con, "APP2", "tcp://127.0.0.1:10001");
   rtConnection_AddListener(con, "A.*.C", onMessage, NULL);
+  rtConnection_AddListener(con, "A.B.C.>", onMessage, NULL);
 
   while ((err = rtConnection_Dispatch(con)) == RT_OK)
-  {
-    // nothing to do
-  }
+    rtLogInfo("dispatch:%s", rtStrError(err));
 
   rtConnection_Destroy(con);
   return 0;

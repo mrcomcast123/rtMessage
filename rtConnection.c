@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,18 +32,12 @@
 #define RTMSG_LISTENERS_MAX 64
 #define RTMSG_SEND_BUFFER_SIZE (1024 * 4094)
 
-static int32_t next_subscription_id = 1;
-static int32_t get_next_subscription_id()
-{
-  return next_subscription_id++;
-}
-
 struct _rtListener
 {
-  int                     used;
+  int                     in_use;
   void*                   closure;
   char*                   expression;
-  int32_t                 subscription_id;
+  uint32_t                subscription_id;
   rtMessageCallback       callback;
 };
 
@@ -60,6 +55,13 @@ struct _rtConnection
 };
 
 static rtError rtConnection_SendInternal(rtConnection con, rtMessage msg);
+
+static uint32_t
+rtConnection_GetNextSubscriptionId()
+{
+  static uint32_t next_id = 1;
+  return next_id++;
+}
 
 static rtError
 rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count)
@@ -130,10 +132,10 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
 
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
   {
-    c->listeners[i].used = 0;
+    c->listeners[i].in_use = 0;
     c->listeners[i].closure = NULL;
     c->listeners[i].callback = NULL;
-    c->listeners[i].subscription_id = -1;
+    c->listeners[i].subscription_id = 0;
   }
 
   c->send_buffer = (uint8_t *) malloc(RTMSG_SEND_BUFFER_SIZE);
@@ -143,6 +145,9 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
 
   c->fd = socket(AF_INET, SOCK_STREAM, 0);
   fcntl(c->fd, F_SETFD, fcntl(c->fd, F_GETFD) | FD_CLOEXEC);
+
+  i = 1;
+  setsockopt(c->fd, SOL_TCP, TCP_NODELAY, &i, sizeof(i));
 
   memset(&c->local_endpoint, 0, sizeof(struct sockaddr_storage));
   memset(&c->remote_endpoint, 0, sizeof(struct sockaddr_storage));
@@ -213,6 +218,7 @@ rtConnection_Destroy(rtConnection con)
 rtError
 rtConnection_Send(rtConnection con, rtMessage msg)
 {
+  // prevent users from sending on system-level topics
   return rtConnection_SendInternal(con, msg);
 }
 
@@ -279,15 +285,15 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
 
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
   {
-    if (!con->listeners[i].used)
+    if (!con->listeners[i].in_use)
       break;
   }
 
   if (i >= RTMSG_LISTENERS_MAX)
     return rtErrorFromErrno(ENOMEM);
 
-  con->listeners[i].used = 1;
-  con->listeners[i].subscription_id = get_next_subscription_id();
+  con->listeners[i].in_use = 1;
+  con->listeners[i].subscription_id = rtConnection_GetNextSubscriptionId();
   con->listeners[i].closure = closure;
   con->listeners[i].callback = callback;
   con->listeners[i].expression = strdup(expression);
@@ -306,6 +312,7 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
 rtError
 rtConnection_Dispatch(rtConnection con)
 {
+  int             i;
   uint8_t*        itr;
   rtMessageHeader hdr;
   rtError         err;
@@ -318,6 +325,7 @@ rtConnection_Dispatch(rtConnection con)
   if (err != RT_OK)
     return err;
 
+  itr = &buff[2];
   rtEncoder_DecodeUInt16(&itr, &hdr.length);
   err = rtConnection_ReadUntil(con, buff + 4, (hdr.length-4));
   if (err != RT_OK)
@@ -330,6 +338,25 @@ rtConnection_Dispatch(rtConnection con)
   err = rtConnection_ReadUntil(con, buff + hdr.length, hdr.payload_length);
   if (err != RT_OK)
     return err;
+
+  rtLogInfo("subscription:%d", hdr.flags);
+
+  for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
+  {
+    if (con->listeners[i].in_use && (con->listeners[i].subscription_id == hdr.control_data))
+    {
+      rtLogInfo("found subscription match:%d", i);
+      break;
+    }
+  }
+
+  if (i < RTMSG_LISTENERS_MAX)
+  {
+    rtMessage m;
+    rtMessage_CreateFromBytes(&m, buff + hdr.length, hdr.payload_length);
+    con->listeners[i].callback(m, con->listeners[i].closure);
+    rtMessage_Destroy(m);
+  }
 
   return RT_OK;
 }

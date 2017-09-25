@@ -21,7 +21,7 @@
 #define RTMSG_HEADER_MAX_TOPIC_LENGTH 128
 
 // size of all fields in 
-#define RTMSG_HEADER_FIZED_SIZE 20
+#define RTMSG_HEADER_FIZED_SIZE 24
 
 typedef struct
 {
@@ -29,6 +29,7 @@ typedef struct
   uint16_t length;
   uint32_t sequence_number;
   uint32_t flags;
+  uint32_t control_data;
   uint32_t payload_length;
   uint32_t topic_length;
   char     topic[RTMSG_HEADER_MAX_TOPIC_LENGTH];
