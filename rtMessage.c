@@ -136,7 +136,6 @@ rtMessage_ConvertToString(rtMessage const m, char** s, uint32_t* n)
 void
 rtMessage_AddFieldString(rtMessage message, char const* name, char const* value)
 {
-   message = (rtMessage) malloc(sizeof(struct _rtMessage));
    cJSON_AddItemToObject(message->json, name, cJSON_CreateString(value));
 }
 
