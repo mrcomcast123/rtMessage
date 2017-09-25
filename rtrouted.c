@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "rtConnection.h"
 #include "rtLog.h"
 #include "rtEncoder.h"
 #include "rtError.h"
@@ -31,36 +32,32 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define RDKMSG_MAX_CONNECTED_CLIENTS 64
-#define RDKMSG_CLIENT_MAX_TOPICS 64
-#define RDKMSG_CLIENT_READ_BUFFER_SIZE (1024 * 8)
-#define RDKMSG_MAX_LISTENERS 4
-#define RDKMSG_INVALID_FD -1
-
-typedef enum
-{
-  rtClientState_ReadHeaderPreamble,
-  rtClientState_ReadHeader,
-  rtClientState_ReadPayload
-} rtClientState;
-
-typedef struct
-{
-  char* topic;
-  int   id;
-} rtSubscription;
+#define RTMSG_MAX_CONNECTED_CLIENTS 64
+#define RTMSG_MAX_ROUTES (RTMSG_MAX_CONNECTED_CLIENTS * 8)
+#define RTMSG_CLIENT_MAX_TOPICS 64
+#define RTMSG_CLIENT_READ_BUFFER_SIZE (1024 * 8)
+#define RTMSG_MAX_LISTENERS 4
+#define RTMSG_INVALID_FD -1
+#define RTMSG_MAX_EXPRESSION_LEN 128
 
 typedef struct
 {
   int                       fd;
   struct sockaddr_storage   endpoint;
-  rtSubscription            subscriptions[RDKMSG_CLIENT_MAX_TOPICS];
   uint8_t*                  read_buffer;
-  rtClientState             state;
+  rtConnectionState         state;
   int                       bytes_read;
   int                       bytes_to_read;
   rtMessageHeader           header;
 } rtConnectedClient;
+
+typedef struct
+{
+  void* closure;
+  rtError (*message_handler)(rtMessageHeader* hdr, uint8_t* buff, int n);
+  char expression[RTMSG_MAX_EXPRESSION_LEN];
+  int in_use;
+} rtRouteEntry;
 
 typedef struct
 {
@@ -69,22 +66,21 @@ typedef struct
   struct sockaddr_storage endpoint;
 } rtListener;
 
-rtConnectedClient clients[RDKMSG_MAX_CONNECTED_CLIENTS];
-rtListener listeners[RDKMSG_MAX_LISTENERS];
+rtConnectedClient clients[RTMSG_MAX_CONNECTED_CLIENTS];
+rtListener        listeners[RTMSG_MAX_LISTENERS];
+rtRouteEntry      routes[RTMSG_MAX_ROUTES];
 
-void
-rtRouter_DispatchMessage(rtMessageHeader* hdr, uint8_t* buff, int n)
+static rtError 
+rtRouted_PrintMessage(rtMessageHeader* hdr, uint8_t* buff, int n)
 {
-  // TODO: 
   (void) hdr;
-  (void) buff;
-  (void) n;
-
+  printf("message debug\n");
   printf("'%.*s'\n", n, (char *) buff);
+  return RT_OK;
 }
 
-int
-rtRouter_IsTopicMatch(char const* topic, char const* exp)
+static int
+rtRouted_IsTopicMatch(char const* topic, char const* exp)
 {
   char const* t = topic;
   char const* e = exp;
@@ -122,30 +118,46 @@ static void
 rtConnectedClient_Init(rtConnectedClient* clnt, int fd, struct sockaddr_storage* remote_endpoint)
 {
   clnt->fd = fd;
-  clnt->state = rtClientState_ReadHeaderPreamble;
+  clnt->state = rtConnectionState_ReadHeaderPreamble;
   clnt->bytes_read = 0;
   clnt->bytes_to_read = 4;
-  clnt->read_buffer = (uint8_t *) malloc(RDKMSG_CLIENT_READ_BUFFER_SIZE);
+  clnt->read_buffer = (uint8_t *) malloc(RTMSG_CLIENT_READ_BUFFER_SIZE);
   memcpy(&clnt->endpoint, remote_endpoint, sizeof(struct sockaddr_storage));
+}
+
+static void
+rtRouter_DispatchMessage(rtMessageHeader* hdr, uint8_t* buff, int n)
+{
+  int i;
+  
+  for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
+  {
+    if (!routes[i].in_use)
+      break;
+
+    if (rtRouted_IsTopicMatch(hdr->topic, routes[i].expression))
+      routes[i].message_handler(hdr, buff, n);
+  }
 }
 
 static void
 rtConnectedClient_Destroy(rtConnectedClient* clnt)
 {
-  int i;
-
   close(clnt->fd);
-  clnt->fd = RDKMSG_INVALID_FD;
+  clnt->fd = RTMSG_INVALID_FD;
   if (clnt->read_buffer)
     free(clnt->read_buffer);
 
-  for (i = 0; i < RDKMSG_CLIENT_MAX_TOPICS; ++i)
+#if 0
+  for (i = 0; i < RTMSG_CLIENT_MAX_TOPICS; ++i)
   {
     if (clnt->subscriptions[i].topic)
       free(clnt->subscriptions[i].topic);
     clnt->subscriptions[i].id = -1;
     clnt->subscriptions[i].topic = NULL;
   }
+#endif
+
 }
 
 static void
@@ -172,7 +184,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
 
   switch (clnt->state)
   {
-    case rtClientState_ReadHeaderPreamble:
+    case rtConnectionState_ReadHeaderPreamble:
     {
       // read version/length of header
       if (clnt->bytes_read == clnt->bytes_to_read)
@@ -181,23 +193,23 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
         uint16_t header_length = 0;
         rtEncoder_DecodeUInt16(&itr, &header_length);
         clnt->bytes_to_read += (header_length - 4);
-        clnt->state = rtClientState_ReadHeader;
+        clnt->state = rtConnectionState_ReadHeader;
       }
     }
     break;
 
-    case rtClientState_ReadHeader:
+    case rtConnectionState_ReadHeader:
     {
       if (clnt->bytes_read == clnt->bytes_to_read)
       {
         rtMessageHeader_Decode(&clnt->header, clnt->read_buffer);
         clnt->bytes_to_read += clnt->header.payload_length;
-        clnt->state = rtClientState_ReadPayload;
+        clnt->state = rtConnectionState_ReadPayload;
       }
     }
     break;
 
-    case rtClientState_ReadPayload:
+    case rtConnectionState_ReadPayload:
     {
       if (clnt->bytes_read == clnt->bytes_to_read)
       {
@@ -205,7 +217,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
           clnt->header.payload_length);
         clnt->bytes_to_read = 4;
         clnt->bytes_read = 0;
-        clnt->state = rtClientState_ReadHeaderPreamble;
+        clnt->state = rtConnectionState_ReadHeaderPreamble;
       }
     }
     break;
@@ -213,9 +225,9 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
 }
 
 static void
-push_fd(fd_set* fds, int fd, int* maxFd)
+rtRouted_PushFd(fd_set* fds, int fd, int* maxFd)
 {
-  if (fd != RDKMSG_INVALID_FD)
+  if (fd != RTMSG_INVALID_FD)
   {
     FD_SET(fd, fds);
     if (maxFd && fd > *maxFd)
@@ -224,7 +236,7 @@ push_fd(fd_set* fds, int fd, int* maxFd)
 }
 
 static void
-register_new_client(int fd, struct sockaddr_storage* remote_endpoint)
+rtRouted_RegisterNewClient(int fd, struct sockaddr_storage* remote_endpoint)
 {
   int i;
   char remote_address[64];
@@ -234,13 +246,13 @@ register_new_client(int fd, struct sockaddr_storage* remote_endpoint)
   remote_address[0] = '\0';
   remote_port = 0;
 
-  for (i = 0; i < RDKMSG_MAX_CONNECTED_CLIENTS; ++i)
+  for (i = 0; i < RTMSG_MAX_CONNECTED_CLIENTS; ++i)
   {
-    if (clients[i].fd == RDKMSG_INVALID_FD)
+    if (clients[i].fd == RTMSG_INVALID_FD)
       break;
   }
 
-  if (i >= RDKMSG_MAX_CONNECTED_CLIENTS)
+  if (i >= RTMSG_MAX_CONNECTED_CLIENTS)
   {
     rtLogError("no more free client slots available");
     return;
@@ -253,7 +265,7 @@ register_new_client(int fd, struct sockaddr_storage* remote_endpoint)
 }
 
 static void
-accept_new_client_connect(rtListener* listener)
+rtRouted_AcceptClientConnection(rtListener* listener)
 {
   int                       fd;
   socklen_t                 socket_length;
@@ -269,11 +281,12 @@ accept_new_client_connect(rtListener* listener)
     return;
   }
 
-  register_new_client(fd, &remote_endpoint);
+  rtRouted_RegisterNewClient(fd, &remote_endpoint);
 
 }
 
-static void bind_listener(char const* addr, uint16_t port, int noDelay)
+static void
+rtRouted_BindListener(char const* addr, uint16_t port, int noDelay)
 {
   int             i;
   int             ret;
@@ -283,7 +296,7 @@ static void bind_listener(char const* addr, uint16_t port, int noDelay)
   rtLogInfo("binding listener to %s:%d", addr, port);
 
   listener = NULL;
-  for (i = 0; i < RDKMSG_MAX_LISTENERS; ++i)
+  for (i = 0; i < RTMSG_MAX_LISTENERS; ++i)
   {
     if (!listeners[i].set)
     {
@@ -365,22 +378,24 @@ int main(int argc, char* argv[])
   ret = 0;
   port = 10001;
 
-  for (i = 0; i < RDKMSG_MAX_CONNECTED_CLIENTS; ++i)
+  for (i = 0; i < RTMSG_MAX_CONNECTED_CLIENTS; ++i)
   {
-    int j;
-    for (j = 0; j < RDKMSG_CLIENT_MAX_TOPICS; ++j)
-    {
-      clients[i].subscriptions[j].topic = NULL;
-      clients[i].subscriptions[j].id = -1;
-    }
-    clients[i].fd = RDKMSG_INVALID_FD;
+    clients[i].fd = RTMSG_INVALID_FD;
     memset(&clients[i].endpoint, 0, sizeof(struct sockaddr_storage));
   }
 
-  for (i = 0; i < RDKMSG_MAX_LISTENERS; ++i)
+  for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
+  {
+    routes[i].closure = NULL;
+    routes[i].message_handler = NULL;
+    routes[i].expression[0] = '\0';
+    routes[i].in_use = 0;
+  }
+
+  for (i = 0; i < RTMSG_MAX_LISTENERS; ++i)
   {
     listeners[i].set = 0;
-    listeners[i].fd = RDKMSG_INVALID_FD;
+    listeners[i].fd = RTMSG_INVALID_FD;
     memset(&listeners[i].endpoint, 0, sizeof(struct sockaddr_storage));
   }
 
@@ -395,10 +410,11 @@ int main(int argc, char* argv[])
       {"foreground",  no_argument,        0, 'f'},
       {"no-delay",    no_argument,        0, 'd' },
       {"log-level",   required_argument,  0, 'l' },
+      {"debug-route", no_argument,        0, 'r' },
       {0, 0, 0, 0}
     };
 
-    c = getopt_long(argc, argv, "df", long_options, &option_index);
+    c = getopt_long(argc, argv, "dfl:r", long_options, &option_index);
     if (c == -1)
       break;
 
@@ -413,6 +429,13 @@ int main(int argc, char* argv[])
       case 'l':
         rtLogSetLevel(rtLogLevelFromString(optarg));
         break;
+      case 'r':
+      {
+        routes[0].closure = NULL;
+        routes[0].in_use = 1;
+        strcpy(routes[0].expression, ">");
+        routes[0].message_handler = &rtRouted_PrintMessage;
+      }
       case '?':
         break;
       default:
@@ -430,7 +453,7 @@ int main(int argc, char* argv[])
     rtLogInfo("running in foreground");
   }
 
-  bind_listener("127.0.0.1", port, use_no_delay);
+  rtRouted_BindListener("127.0.0.1", port, use_no_delay);
 
   while (1)
   {
@@ -445,16 +468,16 @@ int main(int argc, char* argv[])
     timeout.tv_sec = 1;
     timeout.tv_usec = 0;
 
-    for (i = 0; i < RDKMSG_MAX_LISTENERS; ++i)
+    for (i = 0; i < RTMSG_MAX_LISTENERS; ++i)
     {
-      push_fd(&read_fds, listeners[i].fd, &max_fd);
-      push_fd(&err_fds, listeners[i].fd, &max_fd);
+      rtRouted_PushFd(&read_fds, listeners[i].fd, &max_fd);
+      rtRouted_PushFd(&err_fds, listeners[i].fd, &max_fd);
     }
 
-    for (i = 0; i < RDKMSG_MAX_CONNECTED_CLIENTS; ++i)
+    for (i = 0; i < RTMSG_MAX_CONNECTED_CLIENTS; ++i)
     {
-      push_fd(&read_fds, clients[i].fd, &max_fd);
-      push_fd(&err_fds, clients[i].fd, &max_fd);
+      rtRouted_PushFd(&read_fds, clients[i].fd, &max_fd);
+      rtRouted_PushFd(&err_fds, clients[i].fd, &max_fd);
     }
 
     ret = select(max_fd + 1, &read_fds, NULL, &err_fds, &timeout);
@@ -467,18 +490,18 @@ int main(int argc, char* argv[])
       continue;
     }
 
-    for (i = 0; i < RDKMSG_MAX_LISTENERS; ++i)
+    for (i = 0; i < RTMSG_MAX_LISTENERS; ++i)
     {
-      if (listeners[i].fd == RDKMSG_INVALID_FD)
+      if (listeners[i].fd == RTMSG_INVALID_FD)
         continue;
 
       if (FD_ISSET(listeners[0].fd, &read_fds))
-        accept_new_client_connect(&listeners[0]);
+        rtRouted_AcceptClientConnection(&listeners[0]);
     }
 
-    for (i = 0;  i < RDKMSG_MAX_CONNECTED_CLIENTS; ++i)
+    for (i = 0;  i < RTMSG_MAX_CONNECTED_CLIENTS; ++i)
     {
-      if (clients[i].fd == RDKMSG_INVALID_FD)
+      if (clients[i].fd == RTMSG_INVALID_FD)
         continue;
 
       if (FD_ISSET(clients[i].fd, &read_fds))

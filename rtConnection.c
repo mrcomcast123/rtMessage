@@ -39,27 +39,52 @@ static int32_t get_next_subscription_id()
 
 struct _rtListener
 {
-  int used;
-  void* closure;
-  char* expression;
-  int32_t subscription_id;
-  rtMessageCallback callback;
+  int                     used;
+  void*                   closure;
+  char*                   expression;
+  int32_t                 subscription_id;
+  rtMessageCallback       callback;
 };
 
 struct _rtConnection
 {
-  int fd;
+  int                     fd;
   struct sockaddr_storage local_endpoint;
   struct sockaddr_storage remote_endpoint;
-
-  uint8_t* send_buffer;
-  uint32_t sequence_number;
-  char* application_name;
-
-  struct _rtListener listeners[RTMSG_LISTENERS_MAX];
+  uint8_t*                send_buffer;
+  uint8_t*                recv_buffer;
+  uint32_t                sequence_number;
+  char*                   application_name;
+  rtConnectionState       state;
+  struct _rtListener      listeners[RTMSG_LISTENERS_MAX];
 };
 
 static rtError rtConnection_SendInternal(rtConnection con, rtMessage msg);
+
+static rtError
+rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count)
+{
+  ssize_t bytes_read = 0;
+  ssize_t bytes_to_read = count;
+
+  while (bytes_read < bytes_to_read)
+  {
+    ssize_t n = read(con->fd, buff + bytes_read, (bytes_to_read - bytes_read));
+    if (n == 0)
+      return rtErrorFromErrno(ENOTCONN);
+    if (n == -1)
+    {
+      if (errno == EINTR)
+        continue;
+      rtError e = rtErrorFromErrno(errno);
+      rtLogError("failed to read from fd %d. %s", con->fd, rtStrError(e));
+      return e;
+    }
+    bytes_read += n;
+  }
+  return RT_OK;
+}
+
 
 rtError
 rtConnection_Create(rtConnection* con, char const* application_name, char const* router_config)
@@ -112,6 +137,7 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
   }
 
   c->send_buffer = (uint8_t *) malloc(RTMSG_SEND_BUFFER_SIZE);
+  c->recv_buffer = (uint8_t *) malloc(RTMSG_SEND_BUFFER_SIZE);
   c->sequence_number = 1;
   c->application_name = strdup(application_name);
 
@@ -152,6 +178,13 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
     rtLogInfo("connect %s:%d -> %s:%d", local_addr, local_port, remote_addr, remote_port);
   }
 
+  rtMessage m;
+  rtMessage_Create(&m);
+  rtMessage_SetSendTopic(m, "_RTROUTED.INBOX.HELLO");
+  rtMessage_AddFieldString(m, "appname", c->application_name);
+  rtConnection_SendInternal(c, m);
+  rtMessage_Destroy(m);
+
   *con = c;
   return 0;
 }
@@ -168,10 +201,11 @@ rtConnection_Destroy(rtConnection con)
     }
     if (con->send_buffer)
       free(con->send_buffer);
+    if (con->recv_buffer)
+      free(con->recv_buffer);
     if (con->application_name)
       free(con->application_name);
     free(con);
-
   }
   return 0;
 }
@@ -260,7 +294,7 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
 
   rtMessage m;
   rtMessage_Create(&m);
-  rtMessage_AddFieldString(m, "type", "subscribe");
+  rtMessage_SetSendTopic(m, "_RTROUTED.INBOX.SUBSCRIBE");
   rtMessage_AddFieldString(m, "topic", expression);
   rtMessage_AddFieldInt32(m, "route_id", con->listeners[i].subscription_id); 
   rtConnection_SendInternal(con, m);
@@ -272,7 +306,30 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
 rtError
 rtConnection_Dispatch(rtConnection con)
 {
-  (void) con;
-  // TODO
+  uint8_t*        itr;
+  rtMessageHeader hdr;
+  rtError         err;
+  uint8_t         buff[1024];
+
+  // TODO: no error handling right now, all synch I/O
+
+  con->state = rtConnectionState_ReadHeaderPreamble;
+  err = rtConnection_ReadUntil(con, buff, 4);
+  if (err != RT_OK)
+    return err;
+
+  rtEncoder_DecodeUInt16(&itr, &hdr.length);
+  err = rtConnection_ReadUntil(con, buff + 4, (hdr.length-4));
+  if (err != RT_OK)
+    return err;
+
+  err = rtMessageHeader_Decode(&hdr, buff);
+  if (err != RT_OK)
+    return err;
+
+  err = rtConnection_ReadUntil(con, buff + hdr.length, hdr.payload_length);
+  if (err != RT_OK)
+    return err;
+
   return RT_OK;
 }

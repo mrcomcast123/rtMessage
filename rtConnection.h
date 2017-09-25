@@ -23,6 +23,13 @@ typedef struct _rtConnection* rtConnection;
 
 typedef void (*rtMessageCallback)(rtMessage m, void* closure);
 
+typedef enum
+{
+  rtConnectionState_ReadHeaderPreamble,
+  rtConnectionState_ReadHeader,
+  rtConnectionState_ReadPayload
+} rtConnectionState;
+
 rtError
 rtConnection_Create(rtConnection* con, char const* application_name, char const* router_config);
 
