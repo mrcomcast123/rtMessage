@@ -111,6 +111,13 @@ rtMessage_GetAsBytes(rtMessage message, uint8_t const** bytePtr, uint32_t *n)
   return rtMessage_ConvertToString(message, (char **) bytePtr, n);
 }
 
+/**
+ * Format message as string
+ * @param message to be converted to string
+ * @param pointer to a string where message is to be stored
+ * @param  pointer to number of bytes in the message
+ * @return rtStatus
+ **/
 rtError
 rtMessage_ConvertToString(rtMessage const m, char** s, uint32_t* n)
 {
@@ -185,7 +192,6 @@ rtMessage_GetFieldString(rtMessage const  message,const char* name,char** value)
  * @param pointer to integer value obtained.
  * @return rtError
  **/
-rtError
 rtMessage_GetFieldInt32(rtMessage const message,const char* name, int32_t* value)
 {  
   cJSON* p = cJSON_GetObjectItem(message->json, name);
@@ -205,17 +211,23 @@ rtMessage_GetFieldInt32(rtMessage const message,const char* name, int32_t* value
  * @return rtError
  **/
 rtError
-rtMessage_GetFieldDouble(rtMessage const  message,const char* name,double** value)
+rtMessage_GetFieldDouble(rtMessage const  message,const char* name,double* value)
 {
   cJSON* p = cJSON_GetObjectItem(message->json, name);
   if (p)
   {
-    *value = &p->valuedouble;
+    *value = p->valuedouble;
     return RT_OK;
   }
   return RT_FAIL;
 }
 
+/**
+ * Get topic of message to be sent
+ * @param message to get topic
+ * @param name of the topic
+ * @return rtError
+ **/
 rtError
 rtMessage_GetSendTopic(rtMessage const m, char* topic)
 {
@@ -228,6 +240,12 @@ rtMessage_GetSendTopic(rtMessage const m, char* topic)
   return err;
 }
 
+/**
+ * Set topic of message to be sent
+ * @param message to set topic
+ * @param name of the topic
+ * @return rtError
+ **/
 rtError
 rtMessage_SetSendTopic(rtMessage const m, char const* topic)
 {
@@ -240,4 +258,3 @@ rtMessage_SetSendTopic(rtMessage const m, char const* topic)
     cJSON_Delete(obj);
   return RT_OK;
 }
-

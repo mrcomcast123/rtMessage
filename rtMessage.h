@@ -71,7 +71,8 @@ rtMessage_GetAsBytes(rtMessage message, uint8_t const** bytePtr, uint32_t* n);
  * @param value of the field to be added
  * @return void
  **/
-void rtMessage_AddFieldString(rtMessage message, char const* name, char const* value);
+void
+rtMessage_AddFieldString(rtMessage message, char const* name, char const* value);
 
 /**
  * Add integer field to the message
@@ -80,7 +81,8 @@ void rtMessage_AddFieldString(rtMessage message, char const* name, char const* v
  * @param integer value of the field to be added
  * @return void
  **/
-void rtMessage_AddFieldInt32(rtMessage message, char const* name, int32_t value);
+void
+rtMessage_AddFieldInt32(rtMessage message, char const* name, int32_t value);
 
 /**
  * Add double field to the message
@@ -89,7 +91,8 @@ void rtMessage_AddFieldInt32(rtMessage message, char const* name, int32_t value)
  * @param double value of the field to be added
  * @return void
  **/
-void rtMessage_AddFieldDouble(rtMessage message, char const* name, double value);
+void
+rtMessage_AddFieldDouble(rtMessage message, char const* name, double value);
 
 /**
  * Get field value of type string using field name.
@@ -98,7 +101,8 @@ void rtMessage_AddFieldDouble(rtMessage message, char const* name, double value)
  * @param pointer to string value obtained.
  * @return rtError
  **/
-rtError rtMessage_GetFieldString(rtMessage const m, char const* name, char** value);
+rtError
+rtMessage_GetFieldString(rtMessage const m, char const* name, char** value);
 
 /**
  * Get field value of type integer using field name.
@@ -107,7 +111,8 @@ rtError rtMessage_GetFieldString(rtMessage const m, char const* name, char** val
  * @param pointer to integer value obtained.
  * @return rtError
  **/
-rtError rtMessage_GetFieldInt32(rtMessage const m, char const* name, int32_t* value);
+rtError
+ rtMessage_GetFieldInt32(rtMessage const m, char const* name, int32_t* value);
 
 /**
  * Get field value of type double using field name.
@@ -116,10 +121,35 @@ rtError rtMessage_GetFieldInt32(rtMessage const m, char const* name, int32_t* va
  * @param pointer to double value obtained.
  * @return rtError
  **/
-rtError rtMessage_GetFieldDouble(rtMessage const m, char const* name, double** value);
+rtError
+rtMessage_GetFieldDouble(rtMessage const m, char const* name, double* value);
 
-rtError rtMessage_GetSendTopic(rtMessage const m, char* topic);
-rtError rtMessage_SetSendTopic(rtMessage m, char const* topic);
-rtError rtMessage_ConvertToString(rtMessage m, char** s, uint32_t* n);
+/**
+ * Format a message as string
+ * @param message to be formatted
+ * @param pointer to a string where message is to be stored
+ * @param string length
+ * @return rtError
+ **/
+rtError
+rtMessage_ConvertToString(rtMessage m, char** s, uint32_t* n);
+
+/**
+ * Get topic of message to be sent
+ * @param message to get topic
+ * @param name of the topic
+ * @return rtError
+ **/
+rtError
+rtMessage_GetSendTopic(rtMessage const m, char* topic);
+
+/**
+ * Set topic of message to be sent
+ * @param message to set topic
+ * @param name of the topic
+ * @return rtError
+ **/
+rtError
+rtMessage_SetSendTopic(rtMessage m, char const* topic);
 
 #endif
