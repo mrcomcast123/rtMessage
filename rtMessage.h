@@ -62,7 +62,7 @@ rtMessage_Destroy(rtMessage message);
  * @return rtError
  **/
 rtError
-rtMessage_GetAsBytes(rtMessage message, uint8_t const** bytePtr, uint32_t* n);
+rtMessage_ToByteArray(rtMessage message, uint8_t const** bytePtr, uint32_t* n);
 
 /**
  * Add string field to the message
@@ -132,7 +132,7 @@ rtMessage_GetFieldDouble(rtMessage const m, char const* name, double* value);
  * @return rtError
  **/
 rtError
-rtMessage_ConvertToString(rtMessage m, char** s, uint32_t* n);
+rtMessage_ToString(rtMessage m, char** s, uint32_t* n);
 
 /**
  * Get topic of message to be sent

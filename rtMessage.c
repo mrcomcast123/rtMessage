@@ -106,9 +106,9 @@ rtMessage_Destroy(rtMessage message)
  * @return rtErro
  **/
 rtError
-rtMessage_GetAsBytes(rtMessage message, uint8_t const** bytePtr, uint32_t *n)
+rtMessage_ToByteArray(rtMessage message, uint8_t const** bytePtr, uint32_t *n)
 {
-  return rtMessage_ConvertToString(message, (char **) bytePtr, n);
+  return rtMessage_ToString(message, (char **) bytePtr, n);
 }
 
 /**
@@ -119,7 +119,7 @@ rtMessage_GetAsBytes(rtMessage message, uint8_t const** bytePtr, uint32_t *n)
  * @return rtStatus
  **/
 rtError
-rtMessage_ConvertToString(rtMessage const m, char** s, uint32_t* n)
+rtMessage_ToString(rtMessage const m, char** s, uint32_t* n)
 {
   *s = cJSON_PrintUnformatted(m->json);
   *n = strlen(*s);

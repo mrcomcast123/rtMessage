@@ -29,7 +29,7 @@ void onMessage(rtMessage m, void* closure)
   (void) closure;
 
   rtMessage_GetSendTopic(m, topic);
-  rtMessage_ConvertToString(m, &s, &n);
+  rtMessage_ToString(m, &s, &n);
 
   rtLogInfo("TOPIC:%s", topic);
   rtLogInfo("\t%.*s", n, s);

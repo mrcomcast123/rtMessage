@@ -236,7 +236,7 @@ rtConnection_SendInternal(rtConnection con, rtMessage msg)
   if (err != RT_OK)
     return err;
 
-  err = rtMessage_GetAsBytes(msg, &payload, &header.payload_length);
+  err = rtMessage_ToByteArray(msg, &payload, &header.payload_length);
   if (err != RT_OK)
     return err;
 
