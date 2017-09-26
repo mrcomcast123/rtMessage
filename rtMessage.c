@@ -15,7 +15,7 @@
 #include "rtError.h"
 #include "rtMessage.h"
 
-#include <cJSON/cJSON.h>
+#include <cJSON.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
