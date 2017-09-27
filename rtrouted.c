@@ -307,7 +307,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
       // read version/length of header
       if (clnt->bytes_read == clnt->bytes_to_read)
       {
-        uint8_t* itr = &clnt->read_buffer[2];
+        uint8_t const* itr = &clnt->read_buffer[2];
         uint16_t header_length = 0;
         rtEncoder_DecodeUInt16(&itr, &header_length);
         clnt->bytes_to_read += (header_length - 4);

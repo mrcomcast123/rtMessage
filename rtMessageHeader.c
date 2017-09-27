@@ -47,9 +47,9 @@ rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff)
 }
 
 rtError
-rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t* buff)
+rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
 {
-  uint8_t* ptr = buff;
+  uint8_t const* ptr = buff;
   rtEncoder_DecodeUInt16(&ptr, &hdr->version);
   rtEncoder_DecodeUInt16(&ptr, &hdr->length);
   rtEncoder_DecodeUInt32(&ptr, &hdr->sequence_number);

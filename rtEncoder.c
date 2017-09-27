@@ -26,7 +26,7 @@ rtEncoder_EncodeInt32(uint8_t** itr, int32_t n)
 }
 
 rtError
-rtEncoder_DecodeInt32(uint8_t** itr, int32_t* n)
+rtEncoder_DecodeInt32(uint8_t const** itr, int32_t* n)
 {
   int32_t host = 0;
   memcpy(&host, *itr, 4);
@@ -51,7 +51,7 @@ rtEncoder_EncodeString(uint8_t** itr, char const* s, uint32_t* n)
 }
 
 rtError
-rtEncoder_DecodeString(uint8_t** itr, char* s, uint32_t* n)
+rtEncoder_DecodeString(uint8_t const** itr, char* s, uint32_t* n)
 {
   uint32_t len = 0;
   rtEncoder_DecodeInt32(itr, (int32_t *) &len);
@@ -71,7 +71,7 @@ rtEncoder_EncodeUInt16(uint8_t** itr, uint16_t n)
 }
 
 rtError
-rtEncoder_DecodeUInt16(uint8_t** itr, uint16_t* n)
+rtEncoder_DecodeUInt16(uint8_t const** itr, uint16_t* n)
 {
   uint16_t host = 0;
   memcpy(&host, *itr, 2);
@@ -88,7 +88,7 @@ rtEncoder_EncodeUInt32(uint8_t** itr, uint32_t n)
 }
 
 rtError
-rtEncoder_DecodeUInt32(uint8_t** itr, uint32_t* n)
+rtEncoder_DecodeUInt32(uint8_t const** itr, uint32_t* n)
 {
   return rtEncoder_DecodeInt32(itr, (int32_t *)n);
 }

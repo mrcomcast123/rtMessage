@@ -37,6 +37,6 @@ typedef struct
 
 rtError rtMessageHeader_Init(rtMessageHeader* hdr);
 rtError rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff);
-rtError rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t* buff);
+rtError rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff);
 
 #endif

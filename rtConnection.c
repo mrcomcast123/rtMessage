@@ -313,7 +313,7 @@ rtError
 rtConnection_Dispatch(rtConnection con)
 {
   int             i;
-  uint8_t*        itr;
+  uint8_t const*  itr;
   rtMessageHeader hdr;
   rtError         err;
   uint8_t         buff[1024];
