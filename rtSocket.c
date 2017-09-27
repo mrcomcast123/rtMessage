@@ -67,7 +67,6 @@ rtSocket_GetLocalEndpoint(int fd, struct sockaddr_storage* endpoint)
   int         ret;
   socklen_t   len;
 
-  ret = 0;
   len = sizeof(struct sockaddr_in);
   memset(endpoint, 0, sizeof(struct sockaddr_storage));
 

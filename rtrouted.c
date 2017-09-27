@@ -361,7 +361,6 @@ rtRouted_RegisterNewClient(int fd, struct sockaddr_storage* remote_endpoint)
   char remote_address[64];
   uint16_t remote_port;
 
-  i = 0;
   remote_address[0] = '\0';
   remote_port = 0;
 
@@ -494,7 +493,6 @@ int main(int argc, char* argv[])
 
   run_in_foreground = 0;
   use_no_delay = 0;
-  ret = 0;
   port = 10001;
 
   for (i = 0; i < RTMSG_MAX_CONNECTED_CLIENTS; ++i)
@@ -569,8 +567,12 @@ int main(int argc, char* argv[])
 
   if (!run_in_foreground)
   {
-    ret = daemon(0 /*chdir to "/"*/, 0 /*redirect stdout/stderr to /dev/null*/ );
-    rtLogFatal("failed to fork off daemon. %s", rtStrError(errno));
+    ret = daemon(0 /*chdir to "/"*/, 1 /*redirect stdout/stderr to /dev/null*/ );
+    if (ret == -1)
+    {
+      rtLogFatal("failed to fork off daemon. %s", rtStrError(errno));
+      exit(1);
+    }
   }
   else
   {

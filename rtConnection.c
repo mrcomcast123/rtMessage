@@ -99,7 +99,6 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
   socklen_t             socket_length;
 
   port = 0;
-  ret = 0;
   memset(addr, 0, sizeof(addr));
   v4 = NULL;
   socket_length = 0;
