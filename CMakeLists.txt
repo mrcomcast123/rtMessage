@@ -17,11 +17,9 @@ set(CMAKE_C_FLAGS "")
 
 if (BUILD_FOR_DESKTOP)
     set(CJSON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cJSON)
-    set(NANOMSG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/nanomsg)
-    set(LIBRARY_DIR ${CJSON_DIR} ${NANOMSG_DIR})
+    set(LIBRARY_DIR ${CJSON_DIR})
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}
 			${CJSON_DIR}
-			${NANOMSG_DIR}
 		       )
     link_directories(${CMAKE_CURRENT_SOURCE_DIR}
 	             ${LIBRARY_DIR}
@@ -32,7 +30,6 @@ else()
      include_directories(${CMAKE_CURRENT_SOURCE_DIR}
 		    ${INCLUDE_DIR}
                     ${INCLUDE_DIR}/cjson
-                    ${INCLUDE_DIR}/nanomsg
                    )
      link_directories(${CMAKE_CURRENT_SOURCE_DIR}
 	         ${LIBRARY_DIR}
@@ -67,7 +64,7 @@ if (BUILD_RTMESSAGE_LIB)
     message("Building rtMessage lib")
     add_library(rtMessaging_lib SHARED ${RTMESSAGE_SOURCE_FILES})
     set_target_properties(rtMessaging_lib PROPERTIES OUTPUT_NAME "rtMessaging")
-    target_link_libraries(rtMessaging_lib ${LIBRARY_LINKER_OPTIONS} -pthread -lcjson -lnanomsg)
+    target_link_libraries(rtMessaging_lib ${LIBRARY_LINKER_OPTIONS} -pthread -lcjson)
 endif (BUILD_RTMESSAGE_LIB)
 
 if (BUILD_RTMESSAGE_ROUTED)
