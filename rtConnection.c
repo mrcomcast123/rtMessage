@@ -64,6 +64,23 @@ rtConnection_GetNextSubscriptionId()
 }
 
 static rtError
+rtConnection_EnsureRoutingDaemon()
+{
+  int ret = system("rtrouted");
+
+  // 127 is return from sh -c (@see system manpage) when command is not found in $PATH
+  if (WEXITSTATUS(ret) == 127)
+    ret = system("./rtrouted");
+
+  // exit(12) from rtrouted means another instance is already running
+  if (WEXITSTATUS(ret) == 12)
+    return RT_OK;
+
+  rtLogError("Cannot run rtrouted. Code:%d", ret);
+  return RT_OK;
+}
+
+static rtError
 rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count)
 {
   ssize_t bytes_read = 0;
@@ -96,6 +113,7 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
   char                  addr[64];
   struct sockaddr_in*   v4;
   socklen_t             socket_length;
+  rtError               err;
 
   port = 0;
   memset(addr, 0, sizeof(addr));
@@ -124,13 +142,9 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
     return RT_ERROR_INVALID_ARG;
   }  
 
-  int out = system("./rtrouted");
-  if(out == -1)
-  {
-    rtLogError("Cannot run rtrouted %d",out);
-    return RT_ERROR;
-  }
-   
+  err = rtConnection_EnsureRoutingDaemon();
+  if (err != RT_OK)
+    return err;
   rtConnection c = (rtConnection) malloc(sizeof(struct _rtConnection));
   if (!c)
     return rtErrorFromErrno(ENOMEM);
