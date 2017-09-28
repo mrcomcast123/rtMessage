@@ -508,7 +508,7 @@ int main(int argc, char* argv[])
   if (retval != 0 && errno == EWOULDBLOCK)
   {
     printf("another instance running\n");
-    return 0;
+    exit(12);
   }
 
   for (i = 0; i < RTMSG_MAX_CONNECTED_CLIENTS; ++i)
