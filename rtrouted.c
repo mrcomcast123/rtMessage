@@ -32,6 +32,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/file.h>
 
 #define RTMSG_MAX_CONNECTED_CLIENTS 64
 #define RTMSG_MAX_ROUTES (RTMSG_MAX_CONNECTED_CLIENTS * 8)
@@ -494,6 +495,21 @@ int main(int argc, char* argv[])
   run_in_foreground = 0;
   use_no_delay = 0;
   port = 10001;
+
+  FILE* pid_file = fopen("/tmp/rtrouted.pid", "w");
+  if (!pid_file)
+  {
+    printf("failed to open pid file. %s\n", strerror(errno));
+    return 0;
+  }
+  
+  int fd = fileno(pid_file);
+  int retval = flock(fd, LOCK_EX | LOCK_NB);
+  if (retval != 0 && errno == EWOULDBLOCK)
+  {
+    printf("another instance running\n");
+    return 0;
+  }
 
   for (i = 0; i < RTMSG_MAX_CONNECTED_CLIENTS; ++i)
   {

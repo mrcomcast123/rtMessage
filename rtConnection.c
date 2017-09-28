@@ -28,7 +28,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/file.h>
 
 #define RTMSG_LISTENERS_MAX 64
 #define RTMSG_SEND_BUFFER_SIZE (1024 * 4094)
@@ -123,52 +122,15 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
   else
   {
     return RT_ERROR_INVALID_ARG;
-  }
+  }  
 
-  int pidfile;
-  char buf[30];
-  int check = system("pidof rtrouted >> /tmp/rtrouted.pid");
-  if(check)
+  int out = system("./rtrouted");
+  if(out == -1)
   {
-    rtLogError("Error getting pid of rtrouted %d",check);
-    if(check == 256)
-    {
-      int ret = system("./rtrouted");
-      if(ret == -1)
-        rtLogError("Cannot run rtrouted %d",ret);
-    }
-    else
-    {
-      rtLogError("Error getting pid of rtrouted %d",check);
-      exit(0);
-    }
+    rtLogError("Cannot run rtrouted %d",out);
+    return RT_ERROR;
   }
-  FILE *fp = popen("cat /tmp/rtrouted.pid","r");
-  if(fp != NULL)
-  {
-    fgets(buf,30,fp);
-    pidfile = atoi(buf);
-  }
-  if(pidfile != 0)
-  {
-    int pid_file = open("/tmp/rtrouted.pid", O_RDWR|O_CREAT, 0600);
-    int rc = flock(pid_file, LOCK_EX | LOCK_NB);
-    if(rc)
-    {
-       if(EWOULDBLOCK == errno)
-         rtLogInfo("Another instance is running");
-    }
-    else
-    {
-       rtLogInfo("This is the first instance");
-    }
-    int out = system("rm -rf /tmp/rtrouted.pid");
-    if(out)
-    {
-      rtLogError("Error removing pid of rtrouted %d",out);
-    }
-  }
-
+   
   rtConnection c = (rtConnection) malloc(sizeof(struct _rtConnection));
   if (!c)
     return rtErrorFromErrno(ENOMEM);
@@ -205,14 +167,23 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
     c->local_endpoint.ss_family = AF_INET;
     socket_length = sizeof(struct sockaddr_in);
   }
-
-  ret = connect(c->fd, (struct sockaddr *)&c->remote_endpoint, socket_length);
-  if (ret == -1)
+ 
+  int retry = 0;
+  while (retry <= 3)
   {
-    free(c);
-    // error
+    ret = connect(c->fd, (struct sockaddr *)&c->remote_endpoint, socket_length);
+    if (ret == -1)
+    { 
+      if (ret == ECONNREFUSED)
+      {
+        sleep(1);
+        retry++;   
+      } 
+    }
+    else
+      break;
   }
-
+   
   rtSocket_GetLocalEndpoint(c->fd, &c->local_endpoint);
 
   {
