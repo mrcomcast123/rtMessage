@@ -1,9 +1,10 @@
-all: librtMessaging.so rtrouted sample_send sample_recv
+all: librtMessaging.so rtrouted sample_send sample_recv rtsub
 
 CC=gcc
 
 RTMSG_SRCS=\
   rtLog.c \
+  rtBuffer.c \
   rtError.c \
   rtEncoder.c \
   rtSocket.c \
@@ -26,7 +27,7 @@ else
 endif
 
 ifeq ($(DEBUG), 1)
-  CFLAGS += -g -fno-inline -O0 -DRT_DEBUG
+  CFLAGS += -g -fno-inline -O0 -DRT_DEBUG -IcJSON
 else
   CFLAGS += -O2
 endif
@@ -65,3 +66,6 @@ sample_send: librtMessaging.so sample_send.c
 
 sample_recv: librtMessaging.so sample_recv.c
 	$(CC_PRETTY) $(CFLAGS) sample_recv.c -L. -lrtMessaging -o sample_recv -LcJSON -lcjson
+
+rtsub: librtMessaging.so rtsub.c
+	$(CC_PRETTY) $(CFLAGS) rtsub.c -L. -lrtMessaging -o rtsub -LcJSON -lcjson

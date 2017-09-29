@@ -66,11 +66,11 @@ rtConnection_GetNextSubscriptionId()
 static rtError
 rtConnection_EnsureRoutingDaemon()
 {
-  int ret = system("rtrouted");
+  int ret = system("rtrouted 2> /dev/null");
 
   // 127 is return from sh -c (@see system manpage) when command is not found in $PATH
   if (WEXITSTATUS(ret) == 127)
-    ret = system("./rtrouted");
+    ret = system("./rtrouted 2> /dev/null");
 
   // exit(12) from rtrouted means another instance is already running
   if (WEXITSTATUS(ret) == 12)

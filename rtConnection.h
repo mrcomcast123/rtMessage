@@ -18,6 +18,8 @@
 #include "rtError.h"
 #include "rtMessage.h"
 
+#define RTMSG_DEFAULT_ROUTER_LOCATION "tcp://127.0.0.1:10001"
+
 struct _rtConnection;
 typedef struct _rtConnection* rtConnection;
 

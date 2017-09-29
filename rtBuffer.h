@@ -15,13 +15,16 @@
 #ifndef __RT_BUFFER_H__
 #define __RT_BUFFER_H__
 
+#include "rtError.h"
+
 struct _rtBuffer;
 typedef struct _rtBuffer* rtBuffer;
 
 rtError rtBuffer_Create(rtBuffer* buff);
+rtError rtBuffer_CreateFromBytes(rtBuffer* buff, uint8_t* b, int n);
 rtError rtBuffer_Destroy(rtBuffer buff);
 rtError rtBuffer_Retain(rtBuffer buff);
-rtError rtBuffer_Release(rtBuffer);
+rtError rtBuffer_Release(rtBuffer buff);
 rtError rtBuffer_WriteInt32(rtBuffer buff, int32_t n);
 rtError rtBuffer_WriteString(rtBuffer buff, char const* s, int n);
 rtError rtBuffer_ReadInt32(rtBuffer buff, int32_t* n);

@@ -496,6 +496,8 @@ int main(int argc, char* argv[])
   use_no_delay = 0;
   port = 10001;
 
+  rtLogSetLevel(RT_LOG_INFO);
+
   FILE* pid_file = fopen("/tmp/rtrouted.pid", "w");
   if (!pid_file)
   {
@@ -507,9 +509,10 @@ int main(int argc, char* argv[])
   int retval = flock(fd, LOCK_EX | LOCK_NB);
   if (retval != 0 && errno == EWOULDBLOCK)
   {
-    printf("another instance running\n");
+    rtLogInfo("another instance of rtrouted is already running");
     exit(12);
   }
+
 
   for (i = 0; i < RTMSG_MAX_CONNECTED_CLIENTS; ++i)
   {
@@ -532,7 +535,6 @@ int main(int argc, char* argv[])
     memset(&listeners[i].endpoint, 0, sizeof(struct sockaddr_storage));
   }
 
-  rtLogSetLevel(RT_LOG_DEBUG);
   rtLogSetLogHandler(NULL);
 
   routes[0].closure = NULL;
