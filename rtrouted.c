@@ -99,10 +99,39 @@ rtRouted_AddRoute(rtRouteMessageHandler handler, char* exp, void* closure)
   routes[i].closure = closure;
   routes[i].message_handler = handler;
   strcpy(routes[i].expression, exp);
-
   return RT_OK;
 }
 
+static rtError
+rtRouted_RemoveRoute(rtRouteMessageHandler handler)
+{
+  int i;
+  for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
+  {
+    if (!routes[i].in_use)
+      break;
+  }
+
+  if (i >= RTMSG_MAX_ROUTES)
+    return rtErrorFromErrno(ENOMEM);
+
+  routes[i].closure = NULL;
+  routes[i].message_handler = NULL;
+  routes[i].expression[0] = '\0';
+  routes[i].in_use = 0;
+  return RT_OK;
+}
+
+static void
+rtConnectedClient_Destroy(rtConnectedClient* clnt)
+{
+  close(clnt->fd);
+  clnt->fd = RTMSG_INVALID_FD;
+  if (clnt->read_buffer)
+    free(clnt->read_buffer);
+  if (clnt->send_buffer)
+    free(clnt->send_buffer);
+}
 
 static rtError
 rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n, void* closure)
@@ -127,20 +156,33 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
 
   // rtDebug_PrintBuffer("fwd header", subscription->client->send_buffer, new_header.length);
 
-  // TODO: handle client disconnect here
-
   bytes_sent = send(subscription->client->fd, subscription->client->send_buffer, new_header.length, 0);
   if (bytes_sent == -1)
   {
-    rtLogWarn("error forwarding message to client. %s", strerror(errno));
+    if (errno == EBADF)
+    {
+      rtRouted_RemoveRoute(rtRouted_ForwardMessage);
+    }
+    else
+    {
+      rtLogWarn("error forwarding message to client. %d %s", errno, strerror(errno));
+    }
+    return RT_FAIL;
   }
 
   bytes_sent = send(subscription->client->fd, buff, n, 0);
   if (bytes_sent == -1)
   {
-    rtLogWarn("error fowarding message to client. %s", strerror(errno));
+    if (errno == EBADF)
+    {
+      rtRouted_RemoveRoute(rtRouted_ForwardMessage);
+    }
+    else
+    {
+      rtLogWarn("error forwarding message to client. %d %s", errno, strerror(errno));
+    }
+    return RT_FAIL;
   }
-
   return RT_OK;
 }
 
@@ -266,17 +308,6 @@ rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt) // rtMessageHeader* 
           clnt->header.length, clnt->header.payload_length, routes[i].closure);
     }
   }
-}
-
-static void
-rtConnectedClient_Destroy(rtConnectedClient* clnt)
-{
-  close(clnt->fd);
-  clnt->fd = RTMSG_INVALID_FD;
-  if (clnt->read_buffer)
-    free(clnt->read_buffer);
-  if (clnt->send_buffer)
-    free(clnt->send_buffer);
 }
 
 static void
