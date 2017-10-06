@@ -185,6 +185,34 @@ rtMessage_GetFieldString(rtMessage const  message,const char* name,char** value)
 }
 
 /**
+ * Get field value of type string using field name.
+ * @param message to get field
+ * @param name of the field
+ * @param pointer to string value obtained.
+ * @param size of value obtained
+ * @return rtError
+ **/
+rtError
+rtMessage_GetFieldStringValue(rtMessage const message, char const* name, char* fieldvalue, int n)
+{
+  cJSON* p = cJSON_GetObjectItem(message->json, name);
+  if (p)
+  {
+    char *value = p->valuestring;
+    if ( strlen(value) <= n)
+    {
+      snprintf(fieldvalue, n, "%s", value);
+    }
+    else
+    {
+      return RT_FAIL;
+    }
+    return RT_OK;
+  }
+  return RT_FAIL;
+}
+
+/**
  * Get field value of type integer using field name.
  * @param message to get field
  * @param name of the field

@@ -105,6 +105,17 @@ rtError
 rtMessage_GetFieldString(rtMessage const m, char const* name, char** value);
 
 /**
+ * Get field value of type string using field name.
+ * @param message to get field
+ * @param name of the field
+ * @param pointer to string value obtained.
+ * @param size of value obtained
+ * @return rtError
+ **/
+rtError
+rtMessage_GetFieldStringValue(rtMessage const m, char const* name, char* value, int n);
+
+/**
  * Get field value of type integer using field name.
  * @param message to get field
  * @param name of the field
