@@ -95,6 +95,15 @@ void
 rtMessage_AddFieldDouble(rtMessage message, char const* name, double value);
 
 /**
+ * Add array field to the message
+ * @param message to be modified
+ * @param new message item to be added
+ * @return void
+ **/
+void
+rtMessage_AddFieldMessage(rtMessage message, rtMessage item);
+
+/**
  * Get field value of type string using field name.
  * @param message to get field
  * @param name of the field
@@ -134,6 +143,16 @@ rtMessage_GetFieldInt32(rtMessage const m, char const* name, int32_t* value);
  **/
 rtError
 rtMessage_GetFieldDouble(rtMessage const m, char const* name, double* value);
+
+/**
+ * Get field value of type message using index
+ * @param message to get field
+ * @param index of the message field
+ * @param message obtained
+ * @return rtError
+ **/
+rtError
+rtMessage_GetFieldMessage(rtMessage const m, int index, rtMessage* item);
 
 /**
  * Format a message as string

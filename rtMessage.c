@@ -166,6 +166,18 @@ rtMessage_AddFieldDouble(rtMessage message, char const* name, double value)
 }
 
 /**
+ * Add array field to the message
+ * @param message to be modified
+ * @param new message item to be added
+ * @return void
+ **/
+void
+rtMessage_AddFieldMessage(rtMessage message, rtMessage item)
+{
+  cJSON_AddItemToArray(message->json, item->json);
+}
+
+/**
  * Get field value of type string using field name.
  * @param message to get field
  * @param name of the field
@@ -202,12 +214,9 @@ rtMessage_GetFieldStringValue(rtMessage const message, char const* name, char* f
     if ( strlen(value) <= n)
     {
       snprintf(fieldvalue, n, "%s", value);
+      return RT_OK;
     }
-    else
-    {
-      return RT_FAIL;
-    }
-    return RT_OK;
+    return RT_FAIL;
   }
   return RT_FAIL;
 }
@@ -246,6 +255,25 @@ rtMessage_GetFieldDouble(rtMessage const  message,const char* name,double* value
   {
     *value = p->valuedouble;
     return RT_OK;
+  }
+  return RT_FAIL;
+}
+
+/**
+ * Get field value of type message using index
+ * @param message to get field
+ * @param index of the message field
+ * @param message obtained
+ * @return rtError
+ **/
+rtError
+rtMessage_GetFieldMessage(rtMessage const message, int index, rtMessage* item)
+{
+  cJSON* p = cJSON_GetArrayItem(message->json, index);
+  if (p)
+  {
+     (*item)->json = p;
+     return RT_OK;
   }
   return RT_FAIL;
 }
