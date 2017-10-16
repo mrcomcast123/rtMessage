@@ -166,10 +166,11 @@ rtMessage_AddFieldDouble(rtMessage message, char const* name, double value)
 }
 
 /**
- * Add array field to the message
+ * Add sub message field to the message
  * @param message to be modified
+ * @param name of the field to be added
  * @param new message item to be added
- * @return void
+ * @return rtError
  **/
 rtError
 rtMessage_AddFieldMessage(rtMessage message, char const* name, rtMessage item)
@@ -268,9 +269,9 @@ rtMessage_GetFieldDouble(rtMessage const  message,const char* name,double* value
 }
 
 /**
- * Get field value of type message using index
+ * Get field value of type message using name
  * @param message to get field
- * @param index of the message field
+ * @param name of the field
  * @param message obtained
  * @return rtError
  **/
