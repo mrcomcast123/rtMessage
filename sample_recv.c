@@ -23,17 +23,25 @@
 void onMessage(rtMessage m, void* closure)
 {
   char* s;
+  char* itemstring;
   char topic[128];
   uint32_t n;
+  uint32_t num;
 
   (void) closure;
 
   rtMessage_GetSendTopic(m, topic);
+  rtMessage item;
+  rtMessage_Create(&item);
+  rtMessage_GetFieldMessage(m, "new", &item);
+  rtMessage_ToString(item, &itemstring, &num);
+  rtLogInfo("\nSub item: \t%.*s", num, itemstring);
   rtMessage_ToString(m, &s, &n);
 
-  rtLogInfo("TOPIC:%s", topic);
+  rtLogInfo("\nTOPIC:%s", topic);
   rtLogInfo("\t%.*s", n, s);
   free(s);
+  free(itemstring);
 }
 
 int main()

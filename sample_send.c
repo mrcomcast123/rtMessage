@@ -32,6 +32,10 @@ int main()
     rtMessage_Create(&m);
     rtMessage_AddFieldInt32(m, "field1", count++);
     rtMessage_AddFieldString(m, "field2", "hello world");
+    rtMessage item;
+    rtMessage_Create(&item);
+    rtMessage_AddFieldString(item, "field3", "I am extra message");
+    rtMessage_AddFieldMessage(m, "new", item);
     rtMessage_SetSendTopic(m, "A.B.C");
 
     rtConnection_Send(con, m);

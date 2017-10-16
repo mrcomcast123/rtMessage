@@ -100,8 +100,8 @@ rtMessage_AddFieldDouble(rtMessage message, char const* name, double value);
  * @param new message item to be added
  * @return void
  **/
-void
-rtMessage_AddFieldMessage(rtMessage message, rtMessage item);
+rtError
+rtMessage_AddFieldMessage(rtMessage message, char const* name, rtMessage item);
 
 /**
  * Get field value of type string using field name.
@@ -147,12 +147,11 @@ rtMessage_GetFieldDouble(rtMessage const m, char const* name, double* value);
 /**
  * Get field value of type message using index
  * @param message to get field
- * @param index of the message field
  * @param message obtained
  * @return rtError
  **/
 rtError
-rtMessage_GetFieldMessage(rtMessage const m, int index, rtMessage* item);
+rtMessage_GetFieldMessage(rtMessage const m, char const* name, rtMessage* item);
 
 /**
  * Format a message as string

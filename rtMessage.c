@@ -171,10 +171,17 @@ rtMessage_AddFieldDouble(rtMessage message, char const* name, double value)
  * @param new message item to be added
  * @return void
  **/
-void
-rtMessage_AddFieldMessage(rtMessage message, rtMessage item)
+rtError
+rtMessage_AddFieldMessage(rtMessage message, char const* name, rtMessage item)
 {
-  cJSON_AddItemToArray(message->json, item->json);
+  if (!message || !item)
+    return RT_ERROR_INVALID_ARG;
+  if (item->json)
+  {
+    cJSON* obj = cJSON_Duplicate(item->json, 1);
+    cJSON_AddItemToObject(message->json, name, obj);
+  }
+  return RT_OK;
 }
 
 /**
@@ -211,7 +218,8 @@ rtMessage_GetFieldStringValue(rtMessage const message, char const* name, char* f
   if (p)
   {
     char *value = p->valuestring;
-    if ( strlen(value) <= n)
+    int const len = (int) strlen(value);
+    if (len <= n)
     {
       snprintf(fieldvalue, n, "%s", value);
       return RT_OK;
@@ -267,9 +275,12 @@ rtMessage_GetFieldDouble(rtMessage const  message,const char* name,double* value
  * @return rtError
  **/
 rtError
-rtMessage_GetFieldMessage(rtMessage const message, int index, rtMessage* item)
+rtMessage_GetFieldMessage(rtMessage const message, char const* name, rtMessage* item)
 {
-  cJSON* p = cJSON_GetArrayItem(message->json, index);
+  if (!message)
+    return RT_ERROR_INVALID_ARG;
+
+  cJSON* p = cJSON_GetObjectItem(message->json, name);
   if (p)
   {
      (*item)->json = p;
