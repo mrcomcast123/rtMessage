@@ -33,7 +33,7 @@ void onMessage(rtMessage m, void* closure)
   rtMessage_GetSendTopic(m, topic);
   rtMessage item;
   rtMessage_Create(&item);
-  rtMessage_GetFieldMessage(m, "new", &item);
+  rtMessage_GetMessage(m, "new", &item);
   rtMessage_ToString(item, &itemstring, &num);
   rtLogInfo("\nSub item: \t%.*s", num, itemstring);
   rtMessage_ToString(m, &s, &n);

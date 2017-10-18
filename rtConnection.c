@@ -114,6 +114,7 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
   struct sockaddr_in*   v4;
   socklen_t             socket_length;
   rtError               err;
+  char                  inbox_name[64];
 
   port = 0;
   memset(addr, 0, sizeof(addr));
@@ -214,7 +215,11 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
   rtMessage m;
   rtMessage_Create(&m);
   rtMessage_SetSendTopic(m, "_RTROUTED.INBOX.HELLO");
-  rtMessage_AddFieldString(m, "appname", c->application_name);
+  
+  memset(inbox_name, 0, sizeof(inbox_name));
+  snprintf(inbox_name, sizeof(inbox_name), "%s.INBOX.%d", c->application_name, (int)
+    getpid());
+  rtMessage_SetString(m, "inbox", inbox_name);
   rtConnection_SendInternal(c, m);
   rtMessage_Destroy(m);
 
@@ -329,8 +334,8 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
   rtMessage m;
   rtMessage_Create(&m);
   rtMessage_SetSendTopic(m, "_RTROUTED.INBOX.SUBSCRIBE");
-  rtMessage_AddFieldString(m, "topic", expression);
-  rtMessage_AddFieldInt32(m, "route_id", con->listeners[i].subscription_id); 
+  rtMessage_SetString(m, "topic", expression);
+  rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id); 
   rtConnection_SendInternal(con, m);
   rtMessage_Destroy(m);
 

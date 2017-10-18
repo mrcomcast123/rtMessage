@@ -134,7 +134,7 @@ rtMessage_ToString(rtMessage const m, char** s, uint32_t* n)
  * @return void
  **/
 void
-rtMessage_AddFieldString(rtMessage message, char const* name, char const* value)
+rtMessage_SetString(rtMessage message, char const* name, char const* value)
 {
    cJSON_AddItemToObject(message->json, name, cJSON_CreateString(value));
 }
@@ -147,7 +147,7 @@ rtMessage_AddFieldString(rtMessage message, char const* name, char const* value)
  * @return void
  **/
 void
-rtMessage_AddFieldInt32(rtMessage message, char const* name, int32_t value)
+rtMessage_SetInt32(rtMessage message, char const* name, int32_t value)
 {
   cJSON_AddNumberToObject(message->json, name, value); 
 }
@@ -160,7 +160,7 @@ rtMessage_AddFieldInt32(rtMessage message, char const* name, int32_t value)
  * @return void
  **/
 void
-rtMessage_AddFieldDouble(rtMessage message, char const* name, double value)
+rtMessage_SetDouble(rtMessage message, char const* name, double value)
 {
   cJSON_AddItemToObject(message->json, name, cJSON_CreateNumber(value));
 }
@@ -173,7 +173,7 @@ rtMessage_AddFieldDouble(rtMessage message, char const* name, double value)
  * @return rtError
  **/
 rtError
-rtMessage_AddFieldMessage(rtMessage message, char const* name, rtMessage item)
+rtMessage_SetMessage(rtMessage message, char const* name, rtMessage item)
 {
   if (!message || !item)
     return RT_ERROR_INVALID_ARG;
@@ -193,7 +193,7 @@ rtMessage_AddFieldMessage(rtMessage message, char const* name, rtMessage item)
  * @return rtError
  **/
 rtError
-rtMessage_GetFieldString(rtMessage const  message,const char* name,char** value)
+rtMessage_GetString(rtMessage const  message, const char* name, char** value)
 {
   cJSON* p = cJSON_GetObjectItem(message->json, name);
   if (p)
@@ -213,7 +213,7 @@ rtMessage_GetFieldString(rtMessage const  message,const char* name,char** value)
  * @return rtError
  **/
 rtError
-rtMessage_GetFieldStringValue(rtMessage const message, char const* name, char* fieldvalue, int n)
+rtMessage_GetStringValue(rtMessage const message, char const* name, char* fieldvalue, int n)
 {
   cJSON* p = cJSON_GetObjectItem(message->json, name);
   if (p)
@@ -238,7 +238,7 @@ rtMessage_GetFieldStringValue(rtMessage const message, char const* name, char* f
  * @return rtError
  **/
 rtError
-rtMessage_GetFieldInt32(rtMessage const message,const char* name, int32_t* value)
+rtMessage_GetInt32(rtMessage const message,const char* name, int32_t* value)
 {  
   cJSON* p = cJSON_GetObjectItem(message->json, name);
   if (p)
@@ -257,7 +257,7 @@ rtMessage_GetFieldInt32(rtMessage const message,const char* name, int32_t* value
  * @return rtError
  **/
 rtError
-rtMessage_GetFieldDouble(rtMessage const  message,const char* name,double* value)
+rtMessage_GetDouble(rtMessage const  message,const char* name,double* value)
 {
   cJSON* p = cJSON_GetObjectItem(message->json, name);
   if (p)
@@ -276,7 +276,7 @@ rtMessage_GetFieldDouble(rtMessage const  message,const char* name,double* value
  * @return rtError
  **/
 rtError
-rtMessage_GetFieldMessage(rtMessage const message, char const* name, rtMessage* item)
+rtMessage_GetMessage(rtMessage const message, char const* name, rtMessage* item)
 {
   if (!message)
     return RT_ERROR_INVALID_ARG;
@@ -324,5 +324,46 @@ rtMessage_SetSendTopic(rtMessage const m, char const* topic)
     cJSON_AddItemToObject(m->json, "_topic", cJSON_CreateString(topic));
   if (obj)
     cJSON_Delete(obj);
+  return RT_OK;
+}
+
+rtError
+rtMessage_AddString(rtMessage m, char const* name, char const* value)
+{
+  cJSON* obj = cJSON_GetObjectItem(m->json, name);
+  if (!obj)
+  {
+    obj = cJSON_CreateArray();
+    cJSON_AddItemToObject(m->json, name, obj);
+  }
+  cJSON_AddItemToArray(obj, cJSON_CreateString(value));
+  return RT_OK;
+}
+
+rtError
+rtMessage_GetArrayLength(rtMessage const m, char const* name, int32_t* length)
+{
+  cJSON* obj = cJSON_GetObjectItem(m->json, name);
+  if (!obj)
+    *length = 0;
+  else
+    *length = cJSON_GetArraySize(obj);
+  return RT_OK;
+}
+
+rtError
+rtMessage_GetStringItem(rtMessage const m, char const* name, int32_t idx, char* value, int len)
+{
+  cJSON* obj = cJSON_GetObjectItem(m->json, name);
+  if (!obj)
+    return RT_PROPERTY_NOT_FOUND;
+  if (idx >= cJSON_GetArraySize(obj))
+    return RT_FAIL;
+
+  cJSON* item = cJSON_GetArrayItem(obj, idx);
+  if (item)
+  {
+    strncpy(value, item->valuestring, len);
+  }
   return RT_OK;
 }

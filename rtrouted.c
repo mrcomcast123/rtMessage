@@ -105,6 +105,8 @@ rtRouted_AddRoute(rtRouteMessageHandler handler, char* exp, void* closure)
 static rtError
 rtRouted_RemoveRoute(rtRouteMessageHandler handler)
 {
+  (void) handler;
+
   int i;
   for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
   {
@@ -210,8 +212,8 @@ rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t cons
 
     rtMessage m;
     rtMessage_CreateFromBytes(&m, buff, n);
-    rtMessage_GetFieldString(m, "topic", &expression);
-    rtMessage_GetFieldInt32(m, "route_id", &route_id);
+    rtMessage_GetString(m, "topic", &expression);
+    rtMessage_GetInt32(m, "route_id", &route_id);
 
     rtSubscription* subscription = (rtSubscription *) malloc(sizeof(rtSubscription));
     subscription->id = route_id;
@@ -222,18 +224,16 @@ rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t cons
   }
   else if (strcmp(hdr->topic, "_RTROUTED.INBOX.HELLO") == 0)
   {
-    char* appname = NULL;
-    char inbox_name[256];
+    char* inbox = NULL;
 
     rtMessage m;
     rtMessage_CreateFromBytes(&m, buff, n);
-    rtMessage_GetFieldString(m, "appname", &appname);
-    snprintf(inbox_name, sizeof(inbox_name), "%s.INBOX", appname);
+    rtMessage_GetString(m, "inbox", &inbox);
 
     rtSubscription* subscription = (rtSubscription *) malloc(sizeof(rtSubscription));
     subscription->id = 0;
     subscription->client = sender;
-    rtRouted_AddRoute(rtRouted_ForwardMessage, inbox_name, subscription);
+    rtRouted_AddRoute(rtRouted_ForwardMessage, inbox, subscription);
 
     rtMessage_Destroy(m);
   }
