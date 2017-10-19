@@ -61,11 +61,11 @@ typedef struct
 } rtSubscription;
 
 typedef rtError (*rtRouteMessageHandler)(rtConnectedClient* sender, rtMessageHeader* hdr,
-  uint8_t const* buff, int n, void* closure);
+  uint8_t const* buff, int n, rtSubscription* subscription);
 
 typedef struct
 {
-  void*                 closure;
+  rtSubscription*       subscription;
   rtRouteMessageHandler message_handler;
   char                  expression[RTMSG_MAX_EXPRESSION_LEN];
   int                   in_use;
@@ -82,8 +82,20 @@ rtConnectedClient clients[RTMSG_MAX_CONNECTED_CLIENTS];
 rtListener        listeners[RTMSG_MAX_LISTENERS];
 rtRouteEntry      routes[RTMSG_MAX_ROUTES];
 
+static void
+rtRouted_PrintHelp()
+{
+  printf("rtrouted [OPTIONS]...\n");
+  printf("\t-f, --foreground          Run in foreground\n");
+  printf("\t-d, --no-delay            Enabled debugging\n");
+  printf("\t-l, --log-level <level>   Change logging level\n");
+  printf("\t-r, --debug-route         Add a catch all route that dumps messages to stdout\n");
+  printf("\t-h, --help                Print this help\n");
+  exit(0);
+}
+
 static rtError
-rtRouted_AddRoute(rtRouteMessageHandler handler, char* exp, void* closure)
+rtRouted_AddRoute(rtRouteMessageHandler handler, char* exp, rtSubscription* subscription)
 {
   int i;
   for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
@@ -96,37 +108,38 @@ rtRouted_AddRoute(rtRouteMessageHandler handler, char* exp, void* closure)
     return rtErrorFromErrno(ENOMEM);
 
   routes[i].in_use = 1;
-  routes[i].closure = closure;
+  routes[i].subscription = subscription;
   routes[i].message_handler = handler;
   strcpy(routes[i].expression, exp);
   return RT_OK;
 }
 
 static rtError
-rtRouted_RemoveRoute(rtRouteMessageHandler handler)
+rtRouted_ClearClientRoutes(rtConnectedClient* clnt)
 {
-  (void) handler;
-
   int i;
   for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
   {
     if (!routes[i].in_use)
-      break;
+      continue;
+    if (routes[i].subscription && routes[i].subscription->client == clnt)
+    {
+      routes[i].in_use = 0;
+      routes[i].expression[0] = '\0';
+      routes[i].message_handler = NULL;
+      free(routes[i].subscription);
+      routes[i].subscription = NULL;
+    }
   }
 
-  if (i >= RTMSG_MAX_ROUTES)
-    return rtErrorFromErrno(ENOMEM);
-
-  routes[i].closure = NULL;
-  routes[i].message_handler = NULL;
-  routes[i].expression[0] = '\0';
-  routes[i].in_use = 0;
   return RT_OK;
 }
 
 static void
 rtConnectedClient_Destroy(rtConnectedClient* clnt)
 {
+  rtRouted_ClearClientRoutes(clnt);
+
   close(clnt->fd);
   clnt->fd = RTMSG_INVALID_FD;
   if (clnt->read_buffer)
@@ -136,14 +149,11 @@ rtConnectedClient_Destroy(rtConnectedClient* clnt)
 }
 
 static rtError
-rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n, void* closure)
+rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n, rtSubscription* subscription)
 {
-  rtSubscription* subscription;
-  ssize_t         bytes_sent;
+  ssize_t bytes_sent;
 
   (void) sender;
-
-  subscription = (rtSubscription *) closure;
 
   rtMessageHeader new_header;
   rtMessageHeader_Init(&new_header);
@@ -165,7 +175,7 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   {
     if (errno == EBADF)
     {
-      rtRouted_RemoveRoute(rtRouted_ForwardMessage);
+      return rtErrorFromErrno(errno);
     }
     else
     {
@@ -179,7 +189,7 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   {
     if (errno == EBADF)
     {
-      rtRouted_RemoveRoute(rtRouted_ForwardMessage);
+      return rtErrorFromErrno(EBADF);
     }
     else
     {
@@ -191,11 +201,12 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
 }
 
 static rtError 
-rtRouted_PrintMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n, void* closure)
+rtRouted_PrintMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff,
+  int n, rtSubscription* subscription)
 {
   (void) hdr;
-  (void) closure;
   (void) sender;
+  (void) subscription;
 
   printf("message debug\n");
   printf("'%.*s'\n", n, (char *) buff);
@@ -203,9 +214,10 @@ rtRouted_PrintMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t c
 }
 
 static rtError
-rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff, int n, void* closure)
+rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t const* buff,
+  int n, rtSubscription* not_unsed)
 {
-  (void) closure;
+  (void) not_unsed;
 
   if (strcmp(hdr->topic, "_RTROUTED.INBOX.SUBSCRIBE") == 0)
   {
@@ -306,8 +318,13 @@ rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt) // rtMessageHeader* 
 
     if (rtRouted_IsTopicMatch(clnt->header.topic, routes[i].expression))
     {
-      routes[i].message_handler(clnt, &clnt->header, clnt->read_buffer +
-          clnt->header.header_length, clnt->header.payload_length, routes[i].closure);
+      rtError err = routes[i].message_handler(clnt, &clnt->header, clnt->read_buffer +
+          clnt->header.header_length, clnt->header.payload_length, routes[i].subscription);
+      if (err != RT_OK)
+      {
+        if (err == rtErrorFromErrno(EBADF))
+          rtRouted_ClearClientRoutes(clnt);
+      }
     }
   }
 }
@@ -427,6 +444,7 @@ rtRouted_AcceptClientConnection(rtListener* listener)
   memset(&remote_endpoint, 0, sizeof(struct sockaddr_storage));
 
   fd = accept(listener->fd, (struct sockaddr *)&remote_endpoint, &socket_length);
+  rtLogInfo("accept:%d", fd);
   if (fd == -1)
   {
     rtLogWarn("accept:%s", rtStrError(errno));
@@ -555,7 +573,7 @@ int main(int argc, char* argv[])
 
   for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
   {
-    routes[i].closure = NULL;
+    routes[i].subscription = NULL;
     routes[i].message_handler = NULL;
     routes[i].expression[0] = '\0';
     routes[i].in_use = 0;
@@ -570,7 +588,7 @@ int main(int argc, char* argv[])
 
   rtLogSetLogHandler(NULL);
 
-  routes[0].closure = NULL;
+  routes[0].subscription = NULL;
   routes[0].in_use = 1;
   strcpy(routes[0].expression, "_RTROUTED.>");
   routes[0].message_handler = rtRouted_OnMessage;
@@ -584,10 +602,11 @@ int main(int argc, char* argv[])
       {"no-delay",    no_argument,        0, 'd' },
       {"log-level",   required_argument,  0, 'l' },
       {"debug-route", no_argument,        0, 'r' },
+      { "help",       no_argument,        0, 'h' },
       {0, 0, 0, 0}
     };
 
-    c = getopt_long(argc, argv, "dfl:r", long_options, &option_index);
+    c = getopt_long(argc, argv, "dfl:rh", long_options, &option_index);
     if (c == -1)
       break;
 
@@ -602,9 +621,12 @@ int main(int argc, char* argv[])
       case 'l':
         rtLogSetLevel(rtLogLevelFromString(optarg));
         break;
+      case 'h':
+        rtRouted_PrintHelp();
+        break;
       case 'r':
       {
-        routes[1].closure = NULL;
+        routes[1].subscription = NULL;
         routes[1].in_use = 1;
         strcpy(routes[1].expression, ">");
         routes[1].message_handler = &rtRouted_PrintMessage;
