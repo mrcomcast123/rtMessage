@@ -33,29 +33,84 @@ typedef enum
   rtConnectionState_ReadPayload
 } rtConnectionState;
 
+/**
+ * Creates an rtConnection
+ * @param con
+ * @param application_name
+ * @param router_config
+ * @return error
+ */
 rtError
 rtConnection_Create(rtConnection* con, char const* application_name, char const* router_config);
 
+/**
+ * Destroy an rtConnection
+ * @param con
+ * @return error
+ */
 rtError
 rtConnection_Destroy(rtConnection con);
 
+/**
+ * Sends a message
+ * @param con
+ * @param msg
+ * @param topic
+ * @return error
+ */
 rtError
 rtConnection_SendMessage(rtConnection con, rtMessage msg, char const* topic);
 
+/**
+ * Sends a binary payload
+ * @param con
+ * @param topic
+ * @param pointer to buffer
+ * @param length of buffer
+ * @return error
+ */
 rtError
 rtConnection_SendBinary(rtConnection con, char const* topic, uint8_t const* p, uint32_t n);
 
+/**
+ * Sends a request and receive a response
+ * @param con
+ * @param req
+ * @param topic
+ * @param response
+ * @param timeout
+ * @return error
+ */
 rtError
 rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topic,
   rtMessage* res, int32_t timeout);
 
+/**
+ * Register a callback for message receipt
+ * @param con
+ * @param topic expression
+ * @param callback handler
+ * @param closure
+ * @return error
+ */
 rtError
 rtConnection_AddListener(rtConnection con, char const* expression,
   rtMessageCallback callback, void* closure);
 
+/**
+ * Dispatch incoming messages
+ * @param con
+ * @return error
+ */
 rtError
 rtConnection_Dispatch(rtConnection con);
 
+/**
+ * Dispatch with a timeout
+ * @param con
+ * @param timeout
+ * return error
+ */
 rtError
 rtConnection_TimedDispatch(rtConnection con, int32_t timeout);
 
