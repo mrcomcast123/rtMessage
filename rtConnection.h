@@ -24,7 +24,8 @@
 struct _rtConnection;
 typedef struct _rtConnection* rtConnection;
 
-typedef void (*rtMessageCallback)(rtMessageHeader const* hdr, rtMessage m, void* closure);
+typedef void (*rtMessageCallback)(rtMessageHeader const* hdr, uint8_t const* buff,
+  uint32_t n, void* closure);
 
 typedef enum
 {

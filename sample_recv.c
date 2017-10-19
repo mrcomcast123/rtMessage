@@ -20,14 +20,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-void onMessage(rtMessageHeader const* hdr, rtMessage m, void* closure)
+void onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void* closure)
 {
   char* s;
   char* itemstring;
-  uint32_t n;
   uint32_t num;
 
   (void) closure;
+
+  rtMessage m;
+  rtMessage_FromBytes(&m, buff, n);
 
   rtMessage item;
   rtMessage_Create(&item);
@@ -38,8 +40,10 @@ void onMessage(rtMessageHeader const* hdr, rtMessage m, void* closure)
 
   rtLogInfo("\nTOPIC:%s", hdr->topic);
   rtLogInfo("\t%.*s", n, s);
+
   free(s);
   free(itemstring);
+  rtMessage_Destroy(m);
 }
 
 int main()

@@ -45,8 +45,6 @@ static void sendResponse(rtMessageHeader const* hdr, rtMessage const req,
   err = rtConnection_SendMessage(ctx->con, res, hdr->reply_topic);
   if (err != RT_OK)
     rtLogWarn("failed to send response. %s", rtStrError(err));
-
-  rtMessage_Destroy(res);
 }
 
 static void onGet(rtMessageHeader const* hdr, rtMessage const req, rtDataModelProviderContext* ctx)
@@ -68,12 +66,15 @@ static void onSet(rtMessageHeader const* hdr, rtMessage const req, rtDataModelPr
 }
 
 static void
-onMessage(rtMessageHeader const* hdr, rtMessage req, void* closure)
+onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void* closure)
 {
   char method[64];
   rtError err;
   rtMessage res;
+  rtMessage req;
   rtDataModelProviderContext* ctx;
+
+  rtMessage_FromBytes(&req, buff, n);
 
   memset(method, 0, sizeof(method));
   ctx = (rtDataModelProviderContext *) closure;
@@ -96,6 +97,9 @@ onMessage(rtMessageHeader const* hdr, rtMessage req, void* closure)
     onGet(hdr, req, ctx);
   else if (strcasecmp(method, "set") == 0)
     onSet(hdr, req, ctx);
+
+  rtMessage_Destroy(req);
+  rtMessage_Destroy(res);
 }
 
 rtError

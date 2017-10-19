@@ -50,7 +50,7 @@ rtMessage_Create(rtMessage* message)
  * @return rtError
  */
 rtError
-rtMessage_CreateCopy(const rtMessage message,rtMessage* copy)
+rtMessage_Clone(const rtMessage message,rtMessage* copy)
 {
   *copy = (rtMessage) malloc(sizeof(struct _rtMessage));
   if (copy)
@@ -67,7 +67,7 @@ rtMessage_CreateCopy(const rtMessage message,rtMessage* copy)
  * @return rtError
  **/
 rtError
-rtMessage_CreateFromBytes(rtMessage* message, uint8_t const* bytes, int n)
+rtMessage_FromBytes(rtMessage* message, uint8_t const* bytes, int n)
 {
   (void) n;
 

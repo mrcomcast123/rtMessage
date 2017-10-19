@@ -57,11 +57,16 @@ struct _rtConnection
   rtMessage               response;
 };
 
-static void onInboxMessage(rtMessageHeader const* hdr, rtMessage m, void* closure)
+static void onInboxMessage(rtMessageHeader const* hdr, uint8_t const* p, uint32_t n, void* closure)
 {
+  // struct _rtConnection* con = (struct _rtConnection *) closure;
+
   (void) hdr;
-  struct _rtConnection* con = (struct _rtConnection *) closure;
-  rtMessage_CreateCopy(m, &con->response);
+  (void) p;
+  (void) n;
+  (void) closure;
+
+  // rtMessage_CreateCopy(m, &con->response);
 }
 
 static rtError rtConnection_SendInternal(rtConnection con, char const* topic,
@@ -447,10 +452,7 @@ rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
 
   if (i < RTMSG_LISTENERS_MAX)
   {
-    rtMessage m;
-    rtMessage_CreateFromBytes(&m, buff + hdr.header_length, hdr.payload_length);
-    con->listeners[i].callback(&hdr, m, con->listeners[i].closure);
-    rtMessage_Destroy(m);
+    con->listeners[i].callback(&hdr, buff + hdr.header_length, hdr.payload_length, con->listeners[i].closure);
   }
 
   return RT_OK;

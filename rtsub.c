@@ -22,9 +22,11 @@
 
 static int dump_payload = 0;
 
-static void on_message(rtMessageHeader const* hdr, rtMessage m, void* closure)
+static void on_message(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void* closure)
 {
   (void) closure;
+  rtMessage m;
+  rtMessage_FromBytes(&m, buff, n);
 
   printf("BEGIN MESSAGE:%s\n", hdr->topic);
   if (dump_payload)
@@ -35,6 +37,8 @@ static void on_message(rtMessageHeader const* hdr, rtMessage m, void* closure)
     printf("%.*s\n", payload_length, payload);
   }
   printf("END MESSAGE\n");
+
+  rtMessage_Destroy(m);
 }
 
 int main(int argc, char* argv[])

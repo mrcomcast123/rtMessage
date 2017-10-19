@@ -36,7 +36,7 @@ rtMessage_Create(rtMessage* message);
  * @return rtError
  */
 rtError
-rtMessage_CreateCopy(const rtMessage message, rtMessage* copy);
+rtMessage_Clone(const rtMessage message, rtMessage* copy);
 
 /* Allocates storage and initializes it as new message
  * @param pointer to the new message
@@ -44,7 +44,7 @@ rtMessage_CreateCopy(const rtMessage message, rtMessage* copy);
  * @return rtError
  **/
 rtError
-rtMessage_CreateFromBytes(rtMessage* message, uint8_t const* buff, int n);
+rtMessage_FromBytes(rtMessage* message, uint8_t const* buff, int n);
 
 /**
  * Destroy a message; free the storage that it occupies.

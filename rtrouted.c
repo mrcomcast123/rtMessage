@@ -225,7 +225,7 @@ rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t cons
     int32_t route_id = 0;
 
     rtMessage m;
-    rtMessage_CreateFromBytes(&m, buff, n);
+    rtMessage_FromBytes(&m, buff, n);
     rtMessage_GetString(m, "topic", &expression);
     rtMessage_GetInt32(m, "route_id", &route_id);
 
@@ -241,7 +241,7 @@ rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t cons
     char* inbox = NULL;
 
     rtMessage m;
-    rtMessage_CreateFromBytes(&m, buff, n);
+    rtMessage_FromBytes(&m, buff, n);
     rtMessage_GetString(m, "inbox", &inbox);
 
     rtSubscription* subscription = (rtSubscription *) malloc(sizeof(rtSubscription));
