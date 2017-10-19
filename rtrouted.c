@@ -170,7 +170,7 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
 
   // rtDebug_PrintBuffer("fwd header", subscription->client->send_buffer, new_header.length);
 
-  bytes_sent = send(subscription->client->fd, subscription->client->send_buffer, new_header.header_length, 0);
+  bytes_sent = send(subscription->client->fd, subscription->client->send_buffer, new_header.header_length, MSG_NOSIGNAL);
   if (bytes_sent == -1)
   {
     if (errno == EBADF)
@@ -184,7 +184,7 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
     return RT_FAIL;
   }
 
-  bytes_sent = send(subscription->client->fd, buff, n, 0);
+  bytes_sent = send(subscription->client->fd, buff, n, MSG_NOSIGNAL);
   if (bytes_sent == -1)
   {
     if (errno == EBADF)
@@ -335,7 +335,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
   ssize_t bytes_read;
   int bytes_to_read = (clnt->bytes_to_read - clnt->bytes_read);
 
-  bytes_read = read(clnt->fd, &clnt->read_buffer[clnt->bytes_read], bytes_to_read);
+  bytes_read = recv(clnt->fd, &clnt->read_buffer[clnt->bytes_read], bytes_to_read, MSG_NOSIGNAL);
   if (bytes_read == -1)
   {
     rtError e = rtErrorFromErrno(errno);

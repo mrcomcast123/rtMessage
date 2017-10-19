@@ -117,7 +117,7 @@ rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count, int32_t timeo
         return RT_ERROR_TIMEOUT;
     }
 
-    ssize_t n = read(con->fd, buff + bytes_read, (bytes_to_read - bytes_read));
+    ssize_t n = recv(con->fd, buff + bytes_read, (bytes_to_read - bytes_read), MSG_NOSIGNAL);
     if (n == 0)
       return rtErrorFromErrno(ENOTCONN);
     if (n == -1)
@@ -355,7 +355,7 @@ rtConnection_SendInternal(rtConnection con, char const* topic, uint8_t const* bu
   if (err != RT_OK)
     return err;
 
-  bytes_sent = send(con->fd, con->send_buffer, header.header_length, 0);
+  bytes_sent = send(con->fd, con->send_buffer, header.header_length, MSG_NOSIGNAL);
   if (bytes_sent != header.header_length)
   {
     if (bytes_sent == -1)
@@ -363,7 +363,7 @@ rtConnection_SendInternal(rtConnection con, char const* topic, uint8_t const* bu
     return RT_FAIL;
   }
 
-  bytes_sent = send(con->fd, buff, header.payload_length, 0);
+  bytes_sent = send(con->fd, buff, header.payload_length, MSG_NOSIGNAL);
   if (bytes_sent != header.payload_length)
   {
     if (bytes_sent == -1)
