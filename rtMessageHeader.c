@@ -29,6 +29,8 @@ rtMessageHeader_Init(rtMessageHeader* hdr)
   hdr->payload_length = 0;
   hdr->topic_length = 0;
   memset(hdr->topic, 0, RTMSG_HEADER_MAX_TOPIC_LENGTH);
+  hdr->reply_topic_length = 0;
+  memset(hdr->topic, 0, RTMSG_HEADER_MAX_TOPIC_LENGTH);
   return RT_OK;
 }
 
@@ -37,12 +39,13 @@ rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff)
 {
   uint8_t* ptr = buff;
   rtEncoder_EncodeUInt16(&ptr, RTMSG_HEADER_VERSION);
-  rtEncoder_EncodeUInt16(&ptr, hdr->topic_length + RTMSG_HEADER_FIZED_SIZE); 
+  rtEncoder_EncodeUInt16(&ptr, RTMSG_HEADER_SIZE);
   rtEncoder_EncodeInt32(&ptr, hdr->sequence_number); // con->sequence_number++);
   rtEncoder_EncodeInt32(&ptr, hdr->flags);
   rtEncoder_EncodeInt32(&ptr, hdr->control_data);
   rtEncoder_EncodeInt32(&ptr, hdr->payload_length);
   rtEncoder_EncodeString(&ptr, hdr->topic, NULL);
+  rtEncoder_EncodeString(&ptr, hdr->reply_topic, NULL);
   return RT_OK;
 }
 
@@ -57,5 +60,7 @@ rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
   rtEncoder_DecodeUInt32(&ptr, &hdr->control_data);
   rtEncoder_DecodeUInt32(&ptr, &hdr->payload_length);
   rtEncoder_DecodeString(&ptr, hdr->topic, &hdr->topic_length);
+  ptr += (RTMSG_HEADER_MAX_TOPIC_LENGTH - hdr->topic_length);
+  rtEncoder_DecodeString(&ptr, hdr->reply_topic, &hdr->reply_topic_length);
   return RT_OK;
 }

@@ -42,10 +42,13 @@ rtError
 rtConnection_Send(rtConnection con, rtMessage msg);
 
 rtError
+rtConnection_SendRequest(rtConnection con, rtMessage const req, rtMessage* res, int32_t timeout);
+
+rtError
 rtConnection_AddListener(rtConnection con, char const* expression,
   rtMessageCallback callback, void* closure);
 
-rtError
-rtConnection_Dispatch(rtConnection con);
+rtError rtConnection_Dispatch(rtConnection con);
+rtError rtConnection_TimedDispatch(rtConnection con, int32_t timeout);
 
 #endif

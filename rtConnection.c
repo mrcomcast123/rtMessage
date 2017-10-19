@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #define RTMSG_LISTENERS_MAX 64
@@ -51,8 +52,16 @@ struct _rtConnection
   uint32_t                sequence_number;
   char*                   application_name;
   rtConnectionState       state;
+  char                    inbox_name[RTMSG_HEADER_MAX_TOPIC_LENGTH];
   struct _rtListener      listeners[RTMSG_LISTENERS_MAX];
+  rtMessage               response;
 };
+
+static void onInboxMessage(rtMessage m, void* closure)
+{
+  struct _rtConnection* con = (struct _rtConnection *) closure;
+  rtMessage_CreateCopy(m, &con->response);
+}
 
 static rtError rtConnection_SendInternal(rtConnection con, rtMessage msg);
 
@@ -81,13 +90,25 @@ rtConnection_EnsureRoutingDaemon()
 }
 
 static rtError
-rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count)
+rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count, int32_t timeout)
 {
   ssize_t bytes_read = 0;
   ssize_t bytes_to_read = count;
 
   while (bytes_read < bytes_to_read)
   {
+    fd_set read_fds;
+    FD_ZERO(&read_fds);
+    FD_SET(con->fd, &read_fds);
+
+    if (timeout != INT32_MAX)
+    {
+      struct timeval tv = { timeout, 0 };
+      select(con->fd + 1, &read_fds, NULL, NULL, &tv);
+      if (!FD_ISSET(con->fd, &read_fds))
+        return RT_ERROR_TIMEOUT;
+    }
+
     ssize_t n = read(con->fd, buff + bytes_read, (bytes_to_read - bytes_read));
     if (n == 0)
       return rtErrorFromErrno(ENOTCONN);
@@ -114,7 +135,6 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
   struct sockaddr_in*   v4;
   socklen_t             socket_length;
   rtError               err;
-  char                  inbox_name[64];
 
   port = 0;
   memset(addr, 0, sizeof(addr));
@@ -158,11 +178,13 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
     c->listeners[i].subscription_id = 0;
   }
 
+  c->response = NULL;
   c->send_buffer = (uint8_t *) malloc(RTMSG_SEND_BUFFER_SIZE);
   c->recv_buffer = (uint8_t *) malloc(RTMSG_SEND_BUFFER_SIZE);
   c->sequence_number = 1;
   c->application_name = strdup(application_name);
-
+  memset(c->inbox_name, 0, RTMSG_HEADER_MAX_TOPIC_LENGTH);
+  snprintf(c->inbox_name, RTMSG_HEADER_MAX_TOPIC_LENGTH, "%s.INBOX.%d", c->application_name, (int) getpid());
   c->fd = socket(AF_INET, SOCK_STREAM, 0);
   fcntl(c->fd, F_SETFD, fcntl(c->fd, F_GETFD) | FD_CLOEXEC);
 
@@ -212,18 +234,10 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
     rtLogInfo("connect %s:%d -> %s:%d", local_addr, local_port, remote_addr, remote_port);
   }
 
-  rtMessage m;
-  rtMessage_Create(&m);
-  rtMessage_SetSendTopic(m, "_RTROUTED.INBOX.HELLO");
-  
-  memset(inbox_name, 0, sizeof(inbox_name));
-  snprintf(inbox_name, sizeof(inbox_name), "%s.INBOX.%d", c->application_name, (int)
-    getpid());
-  rtMessage_SetString(m, "inbox", inbox_name);
-  rtConnection_SendInternal(c, m);
-  rtMessage_Destroy(m);
+  rtConnection_AddListener(c, c->inbox_name, onInboxMessage, c);
 
   *con = c;
+
   return 0;
 }
 
@@ -256,6 +270,37 @@ rtConnection_Send(rtConnection con, rtMessage msg)
 }
 
 rtError
+rtConnection_SendRequest(rtConnection con, rtMessage const req, rtMessage* res, int32_t timeout)
+{
+  rtError e = rtConnection_SendInternal(con, req);
+  if (e != RT_OK)
+    return e;
+
+  *res = NULL;
+
+  time_t start = time(NULL);
+  time_t now   = start;
+
+  while ((now - start) < (timeout * 1000))
+  {
+    e = rtConnection_TimedDispatch(con, timeout);
+    if (e != RT_ERROR_TIMEOUT || e != RT_OK)
+      return e;
+
+    if (con->response != NULL)
+    {
+      *res = con->response;
+      con->response = NULL;
+      return RT_OK;
+    }
+
+    now = time(NULL);
+  }
+
+  return RT_ERROR_TIMEOUT;
+}
+
+rtError
 rtConnection_SendInternal(rtConnection con, rtMessage msg)
 {
   rtError         err;
@@ -274,23 +319,13 @@ rtConnection_SendInternal(rtConnection con, rtMessage msg)
     return err;
 
   header.topic_length = strlen(header.topic);
-  header.length = header.topic_length + RTMSG_HEADER_FIZED_SIZE;
+  header.length = RTMSG_HEADER_SIZE;
   header.sequence_number = con->sequence_number++;
   header.flags = 0;
 
   err = rtMessageHeader_Encode(&header, con->send_buffer);
   if (err != RT_OK)
     return err;
-
-  #if 0
-  for (i = 0; i < header.length; ++i)
-  {
-    if (i % 16 == 0)
-      printf("\n");
-    printf("0x%02x ", con->send_buffer[i]);
-  }
-  printf("\n");
-  #endif
 
   bytes_sent = send(con->fd, con->send_buffer, header.length, 0);
   if (bytes_sent != header.length)
@@ -345,6 +380,12 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
 rtError
 rtConnection_Dispatch(rtConnection con)
 {
+  return rtConnection_TimedDispatch(con, INT32_MAX);
+}
+
+rtError
+rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
+{
   int             i;
   uint8_t const*  itr;
   rtMessageHeader hdr;
@@ -354,13 +395,13 @@ rtConnection_Dispatch(rtConnection con)
   // TODO: no error handling right now, all synch I/O
 
   con->state = rtConnectionState_ReadHeaderPreamble;
-  err = rtConnection_ReadUntil(con, buff, 4);
+  err = rtConnection_ReadUntil(con, buff, 4, timeout);
   if (err != RT_OK)
     return err;
 
   itr = &buff[2];
   rtEncoder_DecodeUInt16(&itr, &hdr.length);
-  err = rtConnection_ReadUntil(con, buff + 4, (hdr.length-4));
+  err = rtConnection_ReadUntil(con, buff + 4, (hdr.length-4), timeout);
   if (err != RT_OK)
     return err;
 
@@ -368,7 +409,7 @@ rtConnection_Dispatch(rtConnection con)
   if (err != RT_OK)
     return err;
 
-  err = rtConnection_ReadUntil(con, buff + hdr.length, hdr.payload_length);
+  err = rtConnection_ReadUntil(con, buff + hdr.length, hdr.payload_length, timeout);
   if (err != RT_OK)
     return err;
 

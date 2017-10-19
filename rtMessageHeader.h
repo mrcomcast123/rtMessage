@@ -21,7 +21,7 @@
 #define RTMSG_HEADER_MAX_TOPIC_LENGTH 128
 
 // size of all fields in 
-#define RTMSG_HEADER_FIZED_SIZE 24
+#define RTMSG_HEADER_SIZE (24 + (2 * RTMSG_HEADER_MAX_TOPIC_LENGTH))
 
 typedef struct
 {
@@ -33,6 +33,8 @@ typedef struct
   uint32_t payload_length;
   uint32_t topic_length;
   char     topic[RTMSG_HEADER_MAX_TOPIC_LENGTH];
+  uint32_t reply_topic_length;
+  char     reply_topic[RTMSG_HEADER_MAX_TOPIC_LENGTH];
 } rtMessageHeader;
 
 rtError rtMessageHeader_Init(rtMessageHeader* hdr);
