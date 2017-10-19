@@ -26,7 +26,7 @@
 typedef struct
 {
   uint16_t version;
-  uint16_t length;
+  uint16_t header_length;
   uint32_t sequence_number;
   uint32_t flags;
   uint32_t control_data;
@@ -40,6 +40,5 @@ typedef struct
 rtError rtMessageHeader_Init(rtMessageHeader* hdr);
 rtError rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff);
 rtError rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff);
-rtError rtMessageHeader_CalculateEncodedSize(rtMessageHeader* hdr);
 
 #endif

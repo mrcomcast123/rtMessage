@@ -20,17 +20,15 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-void onMessage(rtMessage m, void* closure)
+void onMessage(rtMessageHeader const* hdr, rtMessage m, void* closure)
 {
   char* s;
   char* itemstring;
-  char topic[128];
   uint32_t n;
   uint32_t num;
 
   (void) closure;
 
-  rtMessage_GetSendTopic(m, topic);
   rtMessage item;
   rtMessage_Create(&item);
   rtMessage_GetMessage(m, "new", &item);
@@ -38,7 +36,7 @@ void onMessage(rtMessage m, void* closure)
   rtLogInfo("\nSub item: \t%.*s", num, itemstring);
   rtMessage_ToString(m, &s, &n);
 
-  rtLogInfo("\nTOPIC:%s", topic);
+  rtLogInfo("\nTOPIC:%s", hdr->topic);
   rtLogInfo("\t%.*s", n, s);
   free(s);
   free(itemstring);

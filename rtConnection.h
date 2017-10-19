@@ -17,13 +17,14 @@
 
 #include "rtError.h"
 #include "rtMessage.h"
+#include "rtMessageHeader.h"
 
 #define RTMSG_DEFAULT_ROUTER_LOCATION "tcp://127.0.0.1:10001"
 
 struct _rtConnection;
 typedef struct _rtConnection* rtConnection;
 
-typedef void (*rtMessageCallback)(rtMessage m, void* closure);
+typedef void (*rtMessageCallback)(rtMessageHeader const* hdr, rtMessage m, void* closure);
 
 typedef enum
 {
@@ -39,7 +40,10 @@ rtError
 rtConnection_Destroy(rtConnection con);
 
 rtError
-rtConnection_Send(rtConnection con, rtMessage msg, char const* topic);
+rtConnection_SendMessage(rtConnection con, rtMessage msg, char const* topic);
+
+rtError
+rtConnection_SendBinary(rtConnection con, char const* topic, uint8_t const* p, uint32_t n);
 
 rtError
 rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topic,
@@ -49,7 +53,10 @@ rtError
 rtConnection_AddListener(rtConnection con, char const* expression,
   rtMessageCallback callback, void* closure);
 
-rtError rtConnection_Dispatch(rtConnection con);
-rtError rtConnection_TimedDispatch(rtConnection con, int32_t timeout);
+rtError
+rtConnection_Dispatch(rtConnection con);
+
+rtError
+rtConnection_TimedDispatch(rtConnection con, int32_t timeout);
 
 #endif

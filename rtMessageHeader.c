@@ -23,7 +23,7 @@ rtError
 rtMessageHeader_Init(rtMessageHeader* hdr)
 {
   hdr->version = RTMSG_HEADER_VERSION;
-  hdr->length = 0;
+  hdr->header_length = 0;
   hdr->sequence_number = 0;
   hdr->flags = 0;
   hdr->payload_length = 0;
@@ -38,8 +38,13 @@ rtError
 rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff)
 {
   uint8_t* ptr = buff;
+  static uint16_t const kSizeWithoutStringsInBytes = 28;
+  uint16_t length = kSizeWithoutStringsInBytes
+    + strlen(hdr->topic)
+    + strlen(hdr->reply_topic);
+  hdr->header_length = length;
   rtEncoder_EncodeUInt16(&ptr, RTMSG_HEADER_VERSION);
-  rtEncoder_EncodeUInt16(&ptr, hdr->length);
+  rtEncoder_EncodeUInt16(&ptr, hdr->header_length);
   rtEncoder_EncodeInt32(&ptr, hdr->sequence_number); // con->sequence_number++);
   rtEncoder_EncodeInt32(&ptr, hdr->flags);
   rtEncoder_EncodeInt32(&ptr, hdr->control_data);
@@ -54,23 +59,12 @@ rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
 {
   uint8_t const* ptr = buff;
   rtEncoder_DecodeUInt16(&ptr, &hdr->version);
-  rtEncoder_DecodeUInt16(&ptr, &hdr->length);
+  rtEncoder_DecodeUInt16(&ptr, &hdr->header_length);
   rtEncoder_DecodeUInt32(&ptr, &hdr->sequence_number);
   rtEncoder_DecodeUInt32(&ptr, &hdr->flags);
   rtEncoder_DecodeUInt32(&ptr, &hdr->control_data);
   rtEncoder_DecodeUInt32(&ptr, &hdr->payload_length);
   rtEncoder_DecodeString(&ptr, hdr->topic, &hdr->topic_length);
   rtEncoder_DecodeString(&ptr, hdr->reply_topic, &hdr->reply_topic_length);
-  return RT_OK;
-}
-
-rtError
-rtMessageHeader_CalculateEncodedSize(rtMessageHeader* hdr)
-{
-  static uint16_t const kSizeWithoutStringsInBytes = 28;
-  uint16_t length = kSizeWithoutStringsInBytes
-    + strlen(hdr->topic) 
-    + strlen(hdr->reply_topic);
-  hdr->length = length;
   return RT_OK;
 }

@@ -106,9 +106,9 @@ rtMessage_Destroy(rtMessage message)
  * @return rtErro
  **/
 rtError
-rtMessage_ToByteArray(rtMessage message, uint8_t const** bytePtr, uint32_t *n)
+rtMessage_ToByteArray(rtMessage message, uint8_t** buff, uint32_t *n)
 {
-  return rtMessage_ToString(message, (char **) bytePtr, n);
+  return rtMessage_ToString(message, (char **) buff, n);
 }
 
 /**

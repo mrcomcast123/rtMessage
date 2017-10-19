@@ -25,7 +25,8 @@ typedef struct
   rtDataModelHandle handle;
 } rtDataModelProviderContext;
 
-static void sendResponse(rtMessage const req, rtMessage res, rtDataModelProviderContext* ctx, rtError err)
+static void sendResponse(rtMessageHeader const* hdr, rtMessage const req,
+  rtMessage res, rtDataModelProviderContext* ctx, rtError err)
 {
   int32_t request_id;
   rtMessage_GetInt32(req, "id", &request_id);
@@ -41,33 +42,33 @@ static void sendResponse(rtMessage const req, rtMessage res, rtDataModelProvider
     rtMessage_Destroy(error);
   }
 
-  err = rtConnection_Send(ctx->con, res, "REPLY_TOPIC");
+  err = rtConnection_SendMessage(ctx->con, res, hdr->reply_topic);
   if (err != RT_OK)
     rtLogWarn("failed to send response. %s", rtStrError(err));
 
   rtMessage_Destroy(res);
 }
 
-static void onGet(rtMessage const req, rtDataModelProviderContext* ctx)
+static void onGet(rtMessageHeader const* hdr, rtMessage const req, rtDataModelProviderContext* ctx)
 {
   rtError err;
   rtMessage res;
   rtMessage_Create(&res);
   err = ctx->ops->read(ctx->handle, req, res);
-  sendResponse(req, res, ctx, err);
+  sendResponse(hdr, req, res, ctx, err);
 }
 
-static void onSet(rtMessage const req, rtDataModelProviderContext* ctx)
+static void onSet(rtMessageHeader const* hdr, rtMessage const req, rtDataModelProviderContext* ctx)
 {
   rtError err;
   rtMessage res;
   rtMessage_Create(&res);
   err = ctx->ops->write(ctx->handle, req);
-  sendResponse(req, res, ctx, err);
+  sendResponse(hdr, req, res, ctx, err);
 }
 
 static void
-onMessage(rtMessage req, void* closure)
+onMessage(rtMessageHeader const* hdr, rtMessage req, void* closure)
 {
   char method[64];
   rtError err;
@@ -92,9 +93,9 @@ onMessage(rtMessage req, void* closure)
   }
 
   if (strcasecmp(method, "get") == 0)
-    onGet(req, ctx);
+    onGet(hdr, req, ctx);
   else if (strcasecmp(method, "set") == 0)
-    onSet(req, ctx);
+    onSet(hdr, req, ctx);
 }
 
 rtError

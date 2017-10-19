@@ -57,14 +57,15 @@ struct _rtConnection
   rtMessage               response;
 };
 
-static void onInboxMessage(rtMessage m, void* closure)
+static void onInboxMessage(rtMessageHeader const* hdr, rtMessage m, void* closure)
 {
+  (void) hdr;
   struct _rtConnection* con = (struct _rtConnection *) closure;
   rtMessage_CreateCopy(m, &con->response);
 }
 
-static rtError rtConnection_SendInternal(rtConnection con, rtMessage msg,
-  char const* topic, char const* reply_topic);
+static rtError rtConnection_SendInternal(rtConnection con, char const* topic,
+  uint8_t const* buff, uint32_t n, char const* reply_topic);
   
 
 static uint32_t
@@ -265,19 +266,35 @@ rtConnection_Destroy(rtConnection con)
 }
 
 rtError
-rtConnection_Send(rtConnection con, rtMessage msg, char const* topic)
+rtConnection_SendMessage(rtConnection con, rtMessage msg, char const* topic)
 {
-  // prevent users from sending on system-level topics
-  return rtConnection_SendInternal(con, msg, topic, NULL);
+  uint8_t* p;
+  uint32_t n;
+  rtError err;
+  rtMessage_ToByteArray(msg, &p, &n);
+  err = rtConnection_SendBinary(con, topic, p, n);
+  free(p);
+  return err;
+}
+
+rtError
+rtConnection_SendBinary(rtConnection con, char const* topic, uint8_t const* p, uint32_t n)
+{
+  return rtConnection_SendInternal(con, topic, p, n, NULL);
 }
 
 rtError
 rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topic,
   rtMessage* res, int32_t timeout)
 {
-  rtError e = rtConnection_SendInternal(con, req, topic, con->inbox_name);
-  if (e != RT_OK)
-    return e;
+  uint8_t* p;
+  uint32_t n;
+  rtError err;
+  rtMessage_ToByteArray(req, &p, &n);
+
+  err = rtConnection_SendInternal(con, topic, p, n, con->inbox_name);
+  if (err != RT_OK)
+    return err;
 
   *res = NULL;
 
@@ -286,9 +303,9 @@ rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topi
 
   while ((now - start) < (timeout * 1000))
   {
-    e = rtConnection_TimedDispatch(con, timeout);
-    if (e != RT_ERROR_TIMEOUT || e != RT_OK)
-      return e;
+    err = rtConnection_TimedDispatch(con, timeout);
+    if (err != RT_ERROR_TIMEOUT || err != RT_OK)
+      return err;
 
     if (con->response != NULL)
     {
@@ -304,19 +321,15 @@ rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topi
 }
 
 rtError
-rtConnection_SendInternal(rtConnection con, rtMessage msg, char const* topic,
-  char const* reply_topic)
+rtConnection_SendInternal(rtConnection con, char const* topic, uint8_t const* buff,
+  uint32_t n, char const* reply_topic)
 {
   rtError         err;
   rtMessageHeader header;
   ssize_t         bytes_sent;
-  uint8_t const*  payload;
 
   rtMessageHeader_Init(&header);
-
-  err = rtMessage_ToByteArray(msg, &payload, &header.payload_length);
-  if (err != RT_OK)
-    return err;
+  header.payload_length = n;
 
   strcpy(header.topic, topic);
   header.topic_length = strlen(header.topic);
@@ -330,7 +343,6 @@ rtConnection_SendInternal(rtConnection con, rtMessage msg, char const* topic,
     header.reply_topic[0] = '\0';
     header.reply_topic_length = 0;
   }
-  rtMessageHeader_CalculateEncodedSize(&header);
   header.sequence_number = con->sequence_number++;
   header.flags = 0;
 
@@ -338,15 +350,15 @@ rtConnection_SendInternal(rtConnection con, rtMessage msg, char const* topic,
   if (err != RT_OK)
     return err;
 
-  bytes_sent = send(con->fd, con->send_buffer, header.length, 0);
-  if (bytes_sent != header.length)
+  bytes_sent = send(con->fd, con->send_buffer, header.header_length, 0);
+  if (bytes_sent != header.header_length)
   {
     if (bytes_sent == -1)
       return rtErrorFromErrno(errno);
     return RT_FAIL;
   }
 
-  bytes_sent = send(con->fd, payload, header.payload_length, 0);
+  bytes_sent = send(con->fd, buff, header.payload_length, 0);
   if (bytes_sent != header.payload_length)
   {
     if (bytes_sent == -1)
@@ -381,7 +393,7 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
   rtMessage_Create(&m);
   rtMessage_SetString(m, "topic", expression);
   rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id); 
-  rtConnection_SendInternal(con, m, "_RTROUTED.INBOX.SUBSCRIBE", NULL);
+  rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
   rtMessage_Destroy(m);
 
   return 0;
@@ -410,8 +422,8 @@ rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
     return err;
 
   itr = &buff[2];
-  rtEncoder_DecodeUInt16(&itr, &hdr.length);
-  err = rtConnection_ReadUntil(con, buff + 4, (hdr.length-4), timeout);
+  rtEncoder_DecodeUInt16(&itr, &hdr.header_length);
+  err = rtConnection_ReadUntil(con, buff + 4, (hdr.header_length-4), timeout);
   if (err != RT_OK)
     return err;
 
@@ -419,17 +431,16 @@ rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
   if (err != RT_OK)
     return err;
 
-  err = rtConnection_ReadUntil(con, buff + hdr.length, hdr.payload_length, timeout);
+  err = rtConnection_ReadUntil(con, buff + hdr.header_length, hdr.payload_length, timeout);
   if (err != RT_OK)
     return err;
 
-  rtLogInfo("subscription:%d", hdr.flags);
-
+  rtLogDebug("subscription:%d", hdr.flags);
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
   {
     if (con->listeners[i].in_use && (con->listeners[i].subscription_id == hdr.control_data))
     {
-      rtLogInfo("found subscription match:%d", i);
+      rtLogDebug("found subscription match:%d", i);
       break;
     }
   }
@@ -437,8 +448,8 @@ rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
   if (i < RTMSG_LISTENERS_MAX)
   {
     rtMessage m;
-    rtMessage_CreateFromBytes(&m, buff + hdr.length, hdr.payload_length);
-    con->listeners[i].callback(m, con->listeners[i].closure);
+    rtMessage_CreateFromBytes(&m, buff + hdr.header_length, hdr.payload_length);
+    con->listeners[i].callback(&hdr, m, con->listeners[i].closure);
     rtMessage_Destroy(m);
   }
 

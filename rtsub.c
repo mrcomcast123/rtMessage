@@ -22,15 +22,11 @@
 
 static int dump_payload = 0;
 
-static void on_message(rtMessage m, void* closure)
+static void on_message(rtMessageHeader const* hdr, rtMessage m, void* closure)
 {
-  char topic[128];
-
   (void) closure;
 
-  rtMessage_GetSendTopic(m, topic);
-
-  printf("BEGIN MESSAGE:%s\n", topic);
+  printf("BEGIN MESSAGE:%s\n", hdr->topic);
   if (dump_payload)
   {
     char* payload;

@@ -148,17 +148,19 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   rtMessageHeader new_header;
   rtMessageHeader_Init(&new_header);
   new_header.version = hdr->version;
-  new_header.length = hdr->length;
+  new_header.header_length = hdr->header_length;
   new_header.sequence_number = hdr->sequence_number;
   new_header.control_data = subscription->id;
   new_header.payload_length = hdr->payload_length;
   new_header.topic_length = hdr->topic_length;
+  new_header.reply_topic_length = hdr->reply_topic_length;
   strcpy(new_header.topic, hdr->topic);
+  strcpy(new_header.reply_topic, hdr->reply_topic);
   rtMessageHeader_Encode(&new_header, subscription->client->send_buffer);
 
   // rtDebug_PrintBuffer("fwd header", subscription->client->send_buffer, new_header.length);
 
-  bytes_sent = send(subscription->client->fd, subscription->client->send_buffer, new_header.length, 0);
+  bytes_sent = send(subscription->client->fd, subscription->client->send_buffer, new_header.header_length, 0);
   if (bytes_sent == -1)
   {
     if (errno == EBADF)
@@ -305,7 +307,7 @@ rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt) // rtMessageHeader* 
     if (rtRouted_IsTopicMatch(clnt->header.topic, routes[i].expression))
     {
       routes[i].message_handler(clnt, &clnt->header, clnt->read_buffer +
-          clnt->header.length, clnt->header.payload_length, routes[i].closure);
+          clnt->header.header_length, clnt->header.payload_length, routes[i].closure);
     }
   }
 }

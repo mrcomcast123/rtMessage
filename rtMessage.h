@@ -62,7 +62,7 @@ rtMessage_Destroy(rtMessage message);
  * @return rtError
  **/
 rtError
-rtMessage_ToByteArray(rtMessage message, uint8_t const** bytePtr, uint32_t* n);
+rtMessage_ToByteArray(rtMessage message, uint8_t** buff, uint32_t* n);
 
 /**
  * Add string field to the message
