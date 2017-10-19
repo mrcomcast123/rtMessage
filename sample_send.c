@@ -36,9 +36,8 @@ int main()
     rtMessage_Create(&item);
     rtMessage_SetString(item, "field3", "I am extra message");
     rtMessage_SetMessage(m, "new", item);
-    rtMessage_SetSendTopic(m, "A.B.C");
 
-    rtConnection_Send(con, m);
+    rtConnection_Send(con, m, "A.B.C");
     rtLogInfo("send");
 
     rtMessage_Destroy(m);
@@ -46,9 +45,8 @@ int main()
 
     rtMessage_Create(&m);
     rtMessage_SetInt32(m, "field1", 1234);
-    rtMessage_SetSendTopic(m, "A.B.C.FOO.BAR");
 
-    rtConnection_Send(con, m);
+    rtConnection_Send(con, m, "A.B.C.FOO.BAR");
     rtLogInfo("send");
 
     rtMessage_Destroy(m);

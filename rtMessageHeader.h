@@ -21,7 +21,7 @@
 #define RTMSG_HEADER_MAX_TOPIC_LENGTH 128
 
 // size of all fields in 
-#define RTMSG_HEADER_SIZE (24 + (2 * RTMSG_HEADER_MAX_TOPIC_LENGTH))
+// #define RTMSG_HEADER_SIZE (24 + (2 * RTMSG_HEADER_MAX_TOPIC_LENGTH))
 
 typedef struct
 {
@@ -40,5 +40,6 @@ typedef struct
 rtError rtMessageHeader_Init(rtMessageHeader* hdr);
 rtError rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff);
 rtError rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff);
+rtError rtMessageHeader_CalculateEncodedSize(rtMessageHeader* hdr);
 
 #endif

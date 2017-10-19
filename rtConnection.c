@@ -63,7 +63,9 @@ static void onInboxMessage(rtMessage m, void* closure)
   rtMessage_CreateCopy(m, &con->response);
 }
 
-static rtError rtConnection_SendInternal(rtConnection con, rtMessage msg);
+static rtError rtConnection_SendInternal(rtConnection con, rtMessage msg,
+  char const* topic, char const* reply_topic);
+  
 
 static uint32_t
 rtConnection_GetNextSubscriptionId()
@@ -263,16 +265,17 @@ rtConnection_Destroy(rtConnection con)
 }
 
 rtError
-rtConnection_Send(rtConnection con, rtMessage msg)
+rtConnection_Send(rtConnection con, rtMessage msg, char const* topic)
 {
   // prevent users from sending on system-level topics
-  return rtConnection_SendInternal(con, msg);
+  return rtConnection_SendInternal(con, msg, topic, NULL);
 }
 
 rtError
-rtConnection_SendRequest(rtConnection con, rtMessage const req, rtMessage* res, int32_t timeout)
+rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topic,
+  rtMessage* res, int32_t timeout)
 {
-  rtError e = rtConnection_SendInternal(con, req);
+  rtError e = rtConnection_SendInternal(con, req, topic, con->inbox_name);
   if (e != RT_OK)
     return e;
 
@@ -301,7 +304,8 @@ rtConnection_SendRequest(rtConnection con, rtMessage const req, rtMessage* res, 
 }
 
 rtError
-rtConnection_SendInternal(rtConnection con, rtMessage msg)
+rtConnection_SendInternal(rtConnection con, rtMessage msg, char const* topic,
+  char const* reply_topic)
 {
   rtError         err;
   rtMessageHeader header;
@@ -310,16 +314,23 @@ rtConnection_SendInternal(rtConnection con, rtMessage msg)
 
   rtMessageHeader_Init(&header);
 
-  err = rtMessage_GetSendTopic(msg, header.topic);
-  if (err != RT_OK)
-    return err;
-
   err = rtMessage_ToByteArray(msg, &payload, &header.payload_length);
   if (err != RT_OK)
     return err;
 
+  strcpy(header.topic, topic);
   header.topic_length = strlen(header.topic);
-  header.length = RTMSG_HEADER_SIZE;
+  if (reply_topic)
+  {
+    strcpy(header.reply_topic, reply_topic);
+    header.reply_topic_length = strlen(reply_topic);
+  }
+  else
+  {
+    header.reply_topic[0] = '\0';
+    header.reply_topic_length = 0;
+  }
+  rtMessageHeader_CalculateEncodedSize(&header);
   header.sequence_number = con->sequence_number++;
   header.flags = 0;
 
@@ -368,10 +379,9 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
 
   rtMessage m;
   rtMessage_Create(&m);
-  rtMessage_SetSendTopic(m, "_RTROUTED.INBOX.SUBSCRIBE");
   rtMessage_SetString(m, "topic", expression);
   rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id); 
-  rtConnection_SendInternal(con, m);
+  rtConnection_SendInternal(con, m, "_RTROUTED.INBOX.SUBSCRIBE", NULL);
   rtMessage_Destroy(m);
 
   return 0;

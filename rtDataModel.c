@@ -41,7 +41,7 @@ static void sendResponse(rtMessage const req, rtMessage res, rtDataModelProvider
     rtMessage_Destroy(error);
   }
 
-  err = rtConnection_Send(ctx->con, res);
+  err = rtConnection_Send(ctx->con, res, "REPLY_TOPIC");
   if (err != RT_OK)
     rtLogWarn("failed to send response. %s", rtStrError(err));
 

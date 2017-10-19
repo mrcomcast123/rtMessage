@@ -39,10 +39,11 @@ rtError
 rtConnection_Destroy(rtConnection con);
 
 rtError
-rtConnection_Send(rtConnection con, rtMessage msg);
+rtConnection_Send(rtConnection con, rtMessage msg, char const* topic);
 
 rtError
-rtConnection_SendRequest(rtConnection con, rtMessage const req, rtMessage* res, int32_t timeout);
+rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topic,
+  rtMessage* res, int32_t timeout);
 
 rtError
 rtConnection_AddListener(rtConnection con, char const* expression,
