@@ -56,8 +56,13 @@ int main()
   rtConnection_AddListener(con, "A.*.C", onMessage, NULL);
   rtConnection_AddListener(con, "A.B.C.>", onMessage, NULL);
 
-  while ((err = rtConnection_Dispatch(con)) == RT_OK)
+  while (1)
+  {
+    err = rtConnection_Dispatch(con);
     rtLogInfo("dispatch:%s", rtStrError(err));
+    if (err != RT_OK)
+      sleep(1);
+  }
 
   rtConnection_Destroy(con);
   return 0;

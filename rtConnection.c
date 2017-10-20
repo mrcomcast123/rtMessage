@@ -80,6 +80,84 @@ rtConnection_GetNextSubscriptionId()
   return next_id++;
 }
 
+static int
+rtConnection_ShouldReregister(rtError e)
+{
+  if (rtErrorFromErrno(ENOTCONN) == e) return 1;
+  if (rtErrorFromErrno(EPIPE) == e) return 1;
+  return 0;
+}
+
+static rtError
+rtConnection_ConnectAndRegister(rtConnection con)
+{
+  int i;
+  int ret;
+  socklen_t socket_length;
+
+  i = 1;
+  ret = 0;
+  socket_length = sizeof(struct sockaddr_in); // only v4 now
+
+  if (con->fd != -1)
+    close(con->fd);
+
+  rtLogInfo("connecting to router");
+  con->fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (con->fd == -1)
+    return rtErrorFromErrno(errno);
+
+  fcntl(con->fd, F_SETFD, fcntl(con->fd, F_GETFD) | FD_CLOEXEC);
+
+  setsockopt(con->fd, SOL_TCP, TCP_NODELAY, &i, sizeof(i));
+
+  int retry = 0;
+  while (retry <= 3)
+  {
+    ret = connect(con->fd, (struct sockaddr *)&con->remote_endpoint, socket_length);
+    if (ret == -1)
+    {
+      if (ret == ECONNREFUSED)
+      {
+        sleep(1);
+        retry++;
+      }
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  rtSocket_GetLocalEndpoint(con->fd, &con->local_endpoint);
+
+  {
+    uint16_t local_port;
+    uint16_t remote_port;
+    char local_addr[64];
+    char remote_addr[64];
+
+    rtSocketStorage_ToString(&con->local_endpoint, local_addr, sizeof(local_addr), &local_port);
+    rtSocketStorage_ToString(&con->remote_endpoint, remote_addr, sizeof(remote_addr), &remote_port);
+    rtLogInfo("connect %s:%d -> %s:%d", local_addr, local_port, remote_addr, remote_port);
+  }
+
+  for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
+  {
+    if (con->listeners[i].in_use)
+    {
+      rtMessage m;
+      rtMessage_Create(&m);
+      rtMessage_SetString(m, "topic", con->listeners[i].expression);
+      rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id);
+      rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
+      rtMessage_Destroy(m);
+    }
+  }
+
+  return RT_OK;
+}
+
 static rtError
 rtConnection_EnsureRoutingDaemon()
 {
@@ -93,7 +171,9 @@ rtConnection_EnsureRoutingDaemon()
   if (WEXITSTATUS(ret) == 12)
     return RT_OK;
 
-  rtLogError("Cannot run rtrouted. Code:%d", ret);
+  if (ret != 0)
+    rtLogError("Cannot run rtrouted. Code:%d", ret);
+
   return RT_OK;
 }
 
@@ -136,19 +216,16 @@ rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count, int32_t timeo
 rtError
 rtConnection_Create(rtConnection* con, char const* application_name, char const* router_config)
 {
-  int                   i;
-  int                   port;
-  int                   ret;
-  char                  addr[64];
-  struct sockaddr_in*   v4;
-  socklen_t             socket_length;
-  rtError               err;
+  int i;
+  int ret;
+  int port;
+  char addr[128];
+  struct sockaddr_in* v4;
+  rtError err;
 
-  port = 0;
-  memset(addr, 0, sizeof(addr));
-  v4 = NULL;
-  socket_length = 0;
   i = 0;
+  port = 0;
+  v4 = NULL;
 
   char const* p = strchr(router_config, '/');
   if (p)
@@ -174,6 +251,7 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
   err = rtConnection_EnsureRoutingDaemon();
   if (err != RT_OK)
     return err;
+
   rtConnection c = (rtConnection) malloc(sizeof(struct _rtConnection));
   if (!c)
     return rtErrorFromErrno(ENOMEM);
@@ -191,16 +269,11 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
   c->recv_buffer = (uint8_t *) malloc(RTMSG_SEND_BUFFER_SIZE);
   c->sequence_number = 1;
   c->application_name = strdup(application_name);
+  c->fd = -1;
   memset(c->inbox_name, 0, RTMSG_HEADER_MAX_TOPIC_LENGTH);
-  snprintf(c->inbox_name, RTMSG_HEADER_MAX_TOPIC_LENGTH, "%s.INBOX.%d", c->application_name, (int) getpid());
-  c->fd = socket(AF_INET, SOCK_STREAM, 0);
-  fcntl(c->fd, F_SETFD, fcntl(c->fd, F_GETFD) | FD_CLOEXEC);
-
-  i = 1;
-  setsockopt(c->fd, SOL_TCP, TCP_NODELAY, &i, sizeof(i));
-
   memset(&c->local_endpoint, 0, sizeof(struct sockaddr_storage));
   memset(&c->remote_endpoint, 0, sizeof(struct sockaddr_storage));
+  snprintf(c->inbox_name, RTMSG_HEADER_MAX_TOPIC_LENGTH, "%s.INBOX.%d", c->application_name, (int) getpid());
 
   // only support v4 right now
   v4 = (struct sockaddr_in *) &c->remote_endpoint;
@@ -210,43 +283,22 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
     v4->sin_family = AF_INET;
     v4->sin_port = htons(port);
     c->local_endpoint.ss_family = AF_INET;
-    socket_length = sizeof(struct sockaddr_in);
+    // socket_length = sizeof(struct sockaddr_in);
   }
- 
-  int retry = 0;
-  while (retry <= 3)
+
+
+  err = rtConnection_ConnectAndRegister(c);
+  if (err != RT_OK)
   {
-    ret = connect(c->fd, (struct sockaddr *)&c->remote_endpoint, socket_length);
-    if (ret == -1)
-    { 
-      if (ret == ECONNREFUSED)
-      {
-        sleep(1);
-        retry++;   
-      } 
-    }
-    else
-      break;
   }
-   
-  rtSocket_GetLocalEndpoint(c->fd, &c->local_endpoint);
 
+  if (err == RT_OK)
   {
-    uint16_t local_port;
-    uint16_t remote_port;
-    char local_addr[64];
-    char remote_addr[64];
-
-    rtSocketStorage_ToString(&c->local_endpoint, local_addr, sizeof(local_addr), &local_port);
-    rtSocketStorage_ToString(&c->remote_endpoint, remote_addr, sizeof(remote_addr), &remote_port);
-    rtLogInfo("connect %s:%d -> %s:%d", local_addr, local_port, remote_addr, remote_port);
+    rtConnection_AddListener(c, c->inbox_name, onInboxMessage, c);
+    *con = c;
   }
 
-  rtConnection_AddListener(c, c->inbox_name, onInboxMessage, c);
-
-  *con = c;
-
-  return 0;
+  return err;
 }
 
 rtError
@@ -329,9 +381,14 @@ rtError
 rtConnection_SendInternal(rtConnection con, char const* topic, uint8_t const* buff,
   uint32_t n, char const* reply_topic)
 {
-  rtError         err;
+  rtError err;
+  int num_attempts;
+  int max_attempts;
+  ssize_t bytes_sent;
   rtMessageHeader header;
-  ssize_t         bytes_sent;
+
+  max_attempts = 2;
+  num_attempts = 0;
 
   rtMessageHeader_Init(&header);
   header.payload_length = n;
@@ -355,23 +412,39 @@ rtConnection_SendInternal(rtConnection con, char const* topic, uint8_t const* bu
   if (err != RT_OK)
     return err;
 
-  bytes_sent = send(con->fd, con->send_buffer, header.header_length, MSG_NOSIGNAL);
-  if (bytes_sent != header.header_length)
+  do
   {
-    if (bytes_sent == -1)
-      return rtErrorFromErrno(errno);
-    return RT_FAIL;
-  }
+    bytes_sent = send(con->fd, con->send_buffer, header.header_length, MSG_NOSIGNAL);
+    if (bytes_sent != header.header_length)
+    {
+      if (bytes_sent == -1)
+        err = rtErrorFromErrno(errno);
+      else
+        err = RT_FAIL;
+    }
 
-  bytes_sent = send(con->fd, buff, header.payload_length, MSG_NOSIGNAL);
-  if (bytes_sent != header.payload_length)
-  {
-    if (bytes_sent == -1)
-      return rtErrorFromErrno(errno);
-    return RT_FAIL;
-  }
+    if (err == RT_OK)
+    {
+      bytes_sent = send(con->fd, buff, header.payload_length, MSG_NOSIGNAL);
+      if (bytes_sent != header.payload_length)
+      {
+        if (bytes_sent == -1)
+          err = rtErrorFromErrno(errno);
+        else
+          err = RT_FAIL;
+      }
+    }
 
-  return RT_OK;
+    if (err != RT_OK && rtConnection_ShouldReregister(err))
+    {
+      err = rtConnection_EnsureRoutingDaemon();
+      if (err == RT_OK)
+        err = rtConnection_ConnectAndRegister(con);
+    }
+  }
+  while ((err != RT_OK) && (num_attempts++ < max_attempts));
+
+  return err;
 }
 
 rtError
@@ -413,46 +486,62 @@ rtConnection_Dispatch(rtConnection con)
 rtError
 rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
 {
-  int             i;
+  int i;
+  int num_attempts;
+  int max_attempts;
   uint8_t const*  itr;
   rtMessageHeader hdr;
-  rtError         err;
-  uint8_t         buff[1024];
+  rtError err;
+
+  i = 0;
+  num_attempts = 0;
+  max_attempts = 4;
 
   // TODO: no error handling right now, all synch I/O
 
-  con->state = rtConnectionState_ReadHeaderPreamble;
-  err = rtConnection_ReadUntil(con, buff, 4, timeout);
-  if (err != RT_OK)
-    return err;
-
-  itr = &buff[2];
-  rtEncoder_DecodeUInt16(&itr, &hdr.header_length);
-  err = rtConnection_ReadUntil(con, buff + 4, (hdr.header_length-4), timeout);
-  if (err != RT_OK)
-    return err;
-
-  err = rtMessageHeader_Decode(&hdr, buff);
-  if (err != RT_OK)
-    return err;
-
-  err = rtConnection_ReadUntil(con, buff + hdr.header_length, hdr.payload_length, timeout);
-  if (err != RT_OK)
-    return err;
-
-  rtLogDebug("subscription:%d", hdr.flags);
-  for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
+  do
   {
-    if (con->listeners[i].in_use && (con->listeners[i].subscription_id == hdr.control_data))
+    con->state = rtConnectionState_ReadHeaderPreamble;
+    err = rtConnection_ReadUntil(con, con->recv_buffer, 4, timeout);
+
+    if (err == RT_OK)
     {
-      rtLogDebug("found subscription match:%d", i);
-      break;
+      itr = &con->recv_buffer[2];
+      rtEncoder_DecodeUInt16(&itr, &hdr.header_length);
+      err = rtConnection_ReadUntil(con, con->recv_buffer + 4, (hdr.header_length-4), timeout);
+    }
+
+    if (err == RT_OK)
+      err = rtMessageHeader_Decode(&hdr, con->recv_buffer);
+
+    if (err == RT_OK)
+      err = rtConnection_ReadUntil(con, con->recv_buffer + hdr.header_length, hdr.payload_length, timeout);
+
+    if (err != RT_OK && rtConnection_ShouldReregister(err))
+    {
+      err = rtConnection_EnsureRoutingDaemon();
+      if (err == RT_OK)
+        err = rtConnection_ConnectAndRegister(con);
     }
   }
+  while ((err != RT_OK) && (num_attempts++ < max_attempts));
 
-  if (i < RTMSG_LISTENERS_MAX)
+  if (err == RT_OK)
   {
-    con->listeners[i].callback(&hdr, buff + hdr.header_length, hdr.payload_length, con->listeners[i].closure);
+    for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
+    {
+      if (con->listeners[i].in_use && (con->listeners[i].subscription_id == hdr.control_data))
+      {
+        rtLogDebug("found subscription match:%d", i);
+        break;
+      }
+    }
+
+    if (i < RTMSG_LISTENERS_MAX)
+    {
+      con->listeners[i].callback(&hdr, con->recv_buffer + hdr.header_length, hdr.payload_length,
+        con->listeners[i].closure);
+    }
   }
 
   return RT_OK;

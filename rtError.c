@@ -25,6 +25,8 @@
 #include <string.h>
 #include <pthread.h>
 
+#include <stdio.h>
+
 #define RT_ERROR_CASE(ERR) case ERR: s = # ERR; break;
 #define RT_ERROR_CLASS(ERR) (((ERR) >> 16) & 0x0000ffff)
 #define RT_ERROR_CODE(ERR) ((ERR) & 0x0000ffff)
@@ -112,7 +114,9 @@ const char* rtStrError_SystemError(int e)
   if (specific->error_message)
   {
     #ifdef __linux__
-    strerror_r(e, specific->error_message, 256);
+    int n = strerror_r(e, specific->error_message, 256);
+    if (!n)
+      buff = specific->error_message;
     #else
     buff = strerror(e);
     #endif

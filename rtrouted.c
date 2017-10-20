@@ -41,11 +41,13 @@
 #define RTMSG_MAX_LISTENERS 4
 #define RTMSG_INVALID_FD -1
 #define RTMSG_MAX_EXPRESSION_LEN 128
+#define RTMSG_ADDR_MAX 128
 
 typedef struct
 {
   int                       fd;
   struct sockaddr_storage   endpoint;
+  char                      ident[RTMSG_ADDR_MAX];
   uint8_t*                  read_buffer;
   uint8_t*                  send_buffer;
   rtConnectionState         state;
@@ -111,6 +113,8 @@ rtRouted_AddRoute(rtRouteMessageHandler handler, char* exp, rtSubscription* subs
   routes[i].subscription = subscription;
   routes[i].message_handler = handler;
   strcpy(routes[i].expression, exp);
+  rtLogInfo("client [%s] added new route:%s", subscription->client->ident, exp);
+
   return RT_OK;
 }
 
@@ -430,7 +434,8 @@ rtRouted_RegisterNewClient(int fd, struct sockaddr_storage* remote_endpoint)
   rtConnectedClient_Init(&clients[i], fd, remote_endpoint);
 
   rtSocketStorage_ToString(&clients[i].endpoint, remote_address, sizeof(remote_address), &remote_port);
-  rtLogInfo("new client connection from %s:%d", remote_address, remote_port);
+  snprintf(clients[i].ident, RTMSG_ADDR_MAX, "%s:%d/%d", remote_address, remote_port, fd);
+  rtLogInfo("new client:%s", clients[i].ident);
 }
 
 static void
@@ -444,7 +449,6 @@ rtRouted_AcceptClientConnection(rtListener* listener)
   memset(&remote_endpoint, 0, sizeof(struct sockaddr_storage));
 
   fd = accept(listener->fd, (struct sockaddr *)&remote_endpoint, &socket_length);
-  rtLogInfo("accept:%d", fd);
   if (fd == -1)
   {
     rtLogWarn("accept:%s", rtStrError(errno));
@@ -452,7 +456,6 @@ rtRouted_AcceptClientConnection(rtListener* listener)
   }
 
   rtRouted_RegisterNewClient(fd, &remote_endpoint);
-
 }
 
 static void

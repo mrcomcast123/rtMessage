@@ -22,7 +22,9 @@ int main()
 {
   rtLogSetLevel(RT_LOG_INFO);
 
+  rtError err;
   int count = 0;
+
   rtConnection con;
   rtConnection_Create(&con, "APP1", "tcp://127.0.0.1:10001");
 
@@ -37,8 +39,8 @@ int main()
     rtMessage_SetString(item, "field3", "I am extra message");
     rtMessage_SetMessage(m, "new", item);
 
-    rtConnection_SendMessage(con, m, "A.B.C");
-    rtLogInfo("send");
+    err = rtConnection_SendMessage(con, m, "A.B.C");
+    rtLogInfo("send:%s", rtStrError(err));
 
     rtMessage_Destroy(m);
     sleep(1);
@@ -46,8 +48,8 @@ int main()
     rtMessage_Create(&m);
     rtMessage_SetInt32(m, "field1", 1234);
 
-    rtConnection_SendMessage(con, m, "A.B.C.FOO.BAR");
-    rtLogInfo("send");
+    err = rtConnection_SendMessage(con, m, "A.B.C.FOO.BAR");
+    rtLogInfo("send:%s", rtStrError(err));
 
     rtMessage_Destroy(m);
     sleep(1);
