@@ -19,9 +19,24 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/un.h>
 
 rtError
-rtSocketStorge_GetLength(struct sockaddr_storage* endpoint, socklen_t* len)
+rtSocketStorage_ParsePort(char const* s, uint16_t* port)
+{
+  char const* p = strrchr(s, ':');
+  if (!p)
+  {
+    rtLogError("failed to parse port from address:%s", s);
+    return RT_ERROR_INVALID_ARG;
+  }
+
+  *port = (uint16_t) strtol(p + 1, NULL, 10);
+  return RT_OK;
+}
+
+rtError
+rtSocketStorage_GetLength(struct sockaddr_storage* endpoint, socklen_t* len)
 {
   switch (endpoint->ss_family)
   {
@@ -40,16 +55,18 @@ rtSocketStorge_GetLength(struct sockaddr_storage* endpoint, socklen_t* len)
 rtError
 rtSocketStorage_ToString(struct sockaddr_storage* ss, char* buff, int n, uint16_t* port)
 {
-  void*         addr;
-  int           family;
+  void* addr;
+  int family;
+  struct sockaddr_in* v4;
 
   *port = 0;
   addr = NULL;
   family = 0;
+  v4 = NULL;
 
   if (ss->ss_family == AF_INET)
   {
-    struct sockaddr_in* v4 = (struct sockaddr_in *) ss;
+    v4 = (struct sockaddr_in *) ss;
     addr = &v4->sin_addr;
     *port = ntohs(v4->sin_port);
     family = AF_INET;
@@ -72,6 +89,98 @@ rtSocket_GetLocalEndpoint(int fd, struct sockaddr_storage* endpoint)
 
   if ((ret = getsockname(fd, (struct sockaddr *)endpoint, &len)) == -1)
     rtLogError("getsockname:%s", rtStrError(errno));
+
+  return RT_OK;
+}
+
+#define UNIX_PATH_MAX 256
+
+rtError
+rtSocketStorage_FromString(struct sockaddr_storage* ss, char const* addr)
+{
+  int ret;
+  uint16_t port;
+  char ip[128];
+  rtError err;
+  struct sockaddr_in* v4;
+  struct sockaddr_in6* v6;
+
+  port = 0;
+  ret = 0;
+  memset(ip, 0, sizeof(ip));
+
+  if (strncmp(addr, "unix://", 7) == 0)
+  {
+    struct sockaddr_un* un = (struct sockaddr_un*) ss;
+    un->sun_family = AF_UNIX;
+    strncpy(un->sun_path, addr + 7, UNIX_PATH_MAX);
+    return RT_OK;
+  }
+
+  if (strncmp(addr, "tcp://", 6) != 0)
+    return RT_ERROR_INVALID_ARG;
+
+  err = rtSocketStorage_ParsePort(addr, &port);
+  if (err != RT_OK)
+    return err;
+
+  char const* p = strrchr(addr + 6, ':');
+  if (!p)
+  {
+    rtLogWarn("invalid address string:%s", (addr+6));
+    return RT_ERROR_INVALID_ARG;
+  }
+
+  strncpy(ip, addr+6, (p-addr-6));
+  rtLogInfo("parsing ip address:%s", ip);
+
+  v4 = (struct sockaddr_in *) ss;
+  ret = inet_pton(AF_INET, ip, &v4->sin_addr);
+
+  if (ret == 1)
+  {
+    #ifndef __linux__
+    v4->sin_len = sizeof(struct sockaddr_in);
+    #endif
+
+    v4->sin_family = AF_INET;
+    v4->sin_port = htons(port);
+    ss->ss_family = AF_INET;
+
+    return RT_OK;
+  }
+  else if (ret == 0)
+  {
+    v6 = (struct sockaddr_in6 *) ss;
+    ret = inet_pton(AF_INET6, ip, &v6->sin6_addr);
+    if (ret == 1)
+    {
+      // it's a numeric address
+      v6->sin6_family = AF_INET6;
+      v6->sin6_port = htons(port);
+    }
+  }
+  else
+  {
+    return rtErrorFromErrno(errno);
+  }
+  return RT_OK;
+}
+
+rtError
+rtSocketAddrStorage_GetLength(struct sockaddr_storage* ss, socklen_t* len)
+{
+  if (!len)
+    return RT_ERROR_INVALID_ARG;
+
+  if (ss->ss_family == AF_INET)
+    *len = sizeof(struct sockaddr_in);
+  else if (ss->ss_family == AF_INET6)
+    *len = sizeof(struct sockaddr_in6);
+  else if (ss->ss_family == AF_UNIX)
+    *len = sizeof(struct sockaddr_un);
+  else
+    *len = sizeof(struct sockaddr_storage);
 
   return RT_OK;
 }

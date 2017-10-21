@@ -92,6 +92,7 @@ rtRouted_PrintHelp()
   printf("\t-d, --no-delay            Enabled debugging\n");
   printf("\t-l, --log-level <level>   Change logging level\n");
   printf("\t-r, --debug-route         Add a catch all route that dumps messages to stdout\n");
+  printf("\t-s, --socket              [tcp://ip:port unix:///path/to/domain_socket]\n");
   printf("\t-h, --help                Print this help\n");
   exit(0);
 }
@@ -545,10 +546,12 @@ int main(int argc, char* argv[])
   int use_no_delay;
   int ret;
   int port;
+  char const* socket_name;
 
   run_in_foreground = 0;
   use_no_delay = 0;
   port = 10001;
+  socket_name = "127.0.0.1:10001";
 
   rtLogSetLevel(RT_LOG_INFO);
 
@@ -605,16 +608,20 @@ int main(int argc, char* argv[])
       {"no-delay",    no_argument,        0, 'd' },
       {"log-level",   required_argument,  0, 'l' },
       {"debug-route", no_argument,        0, 'r' },
+      {"socket",      required_argument,  0, 's' },
       { "help",       no_argument,        0, 'h' },
       {0, 0, 0, 0}
     };
 
-    c = getopt_long(argc, argv, "dfl:rh", long_options, &option_index);
+    c = getopt_long(argc, argv, "dfl:rhs:", long_options, &option_index);
     if (c == -1)
       break;
 
     switch (c)
     {
+      case 's':
+        socket_name = optarg;
+        break;
       case 'd':
         use_no_delay = 0;
         break;
@@ -655,7 +662,7 @@ int main(int argc, char* argv[])
     rtLogInfo("running in foreground");
   }
 
-  rtRouted_BindListener("127.0.0.1", port, use_no_delay);
+  rtRouted_BindListener(socket_name, port, use_no_delay);
 
   while (1)
   {

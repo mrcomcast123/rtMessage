@@ -97,7 +97,7 @@ rtConnection_ConnectAndRegister(rtConnection con)
 
   i = 1;
   ret = 0;
-  socket_length = sizeof(struct sockaddr_in); // only v4 now
+  rtSocketStorage_GetLength(&con->remote_endpoint, &socket_length);
 
   if (con->fd != -1)
     close(con->fd);
@@ -217,36 +217,10 @@ rtError
 rtConnection_Create(rtConnection* con, char const* application_name, char const* router_config)
 {
   int i;
-  int ret;
-  int port;
-  char addr[128];
-  struct sockaddr_in* v4;
   rtError err;
 
   i = 0;
-  port = 0;
-  v4 = NULL;
-
-  char const* p = strchr(router_config, '/');
-  if (p)
-    p += 2;
-  else
-    return RT_ERROR_INVALID_ARG;
-
-  if (p)
-  {
-    char const* q = strchr(p, ':');
-    if (q)
-    {
-      strncpy(addr, p, (q-p));
-      q++;
-      port = strtol(q, NULL, 10);
-    }
-  }
-  else
-  {
-    return RT_ERROR_INVALID_ARG;
-  }  
+  err = RT_OK;
 
   err = rtConnection_EnsureRoutingDaemon();
   if (err != RT_OK)
@@ -275,17 +249,13 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
   memset(&c->remote_endpoint, 0, sizeof(struct sockaddr_storage));
   snprintf(c->inbox_name, RTMSG_HEADER_MAX_TOPIC_LENGTH, "%s.INBOX.%d", c->application_name, (int) getpid());
 
-  // only support v4 right now
-  v4 = (struct sockaddr_in *) &c->remote_endpoint;
-  ret = inet_pton(AF_INET, addr, &v4->sin_addr);
-  if (ret == 1)
+  err = rtSocketStorage_FromString(&c->remote_endpoint, router_config);
+  if (err != RT_OK)
   {
-    v4->sin_family = AF_INET;
-    v4->sin_port = htons(port);
-    c->local_endpoint.ss_family = AF_INET;
-    // socket_length = sizeof(struct sockaddr_in);
+    rtLogWarn("failed to parse:%s. %s", router_config, rtStrError(err));
+    free(c);
+    return err;
   }
-
 
   err = rtConnection_ConnectAndRegister(c);
   if (err != RT_OK)
