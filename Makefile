@@ -12,7 +12,8 @@ RTMSG_SRCS=\
   rtMessageHeader.c \
   rtDebug.c \
   rtMessage.c \
-  rtDataModel.c
+  rtDataModel.c \
+  rtVector.c
 
 RTROUTER_SRCS=rtrouted.c
 
@@ -37,7 +38,8 @@ ifeq ($(PROFILE), 1)
   CFLAGS += -pg
 endif
 
-CFLAGS+=-Werror -Wall -Wextra -DRT_PLATFORM_LINUX -I. -fPIC
+#CFLAGS+=-Werror -Wall -Wextra -DRT_PLATFORM_LINUX -I. -fPIC
+CFLAGS+=-Wall -Wextra -DRT_PLATFORM_LINUX -I. -fPIC
 LDFLAGS=-L. -pthread
 OBJDIR=obj
 

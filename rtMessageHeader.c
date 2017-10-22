@@ -14,6 +14,7 @@
  */
 #include "rtMessageHeader.h"
 #include "rtEncoder.h"
+#include "rtLog.h"
 
 #include <string.h>
 
@@ -30,7 +31,7 @@ rtMessageHeader_Init(rtMessageHeader* hdr)
   hdr->topic_length = 0;
   memset(hdr->topic, 0, RTMSG_HEADER_MAX_TOPIC_LENGTH);
   hdr->reply_topic_length = 0;
-  memset(hdr->topic, 0, RTMSG_HEADER_MAX_TOPIC_LENGTH);
+  memset(hdr->reply_topic, 0, RTMSG_HEADER_MAX_TOPIC_LENGTH);
   return RT_OK;
 }
 

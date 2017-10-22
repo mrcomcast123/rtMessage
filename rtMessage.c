@@ -71,6 +71,19 @@ rtMessage_FromBytes(rtMessage* message, uint8_t const* bytes, int n)
 {
   (void) n;
 
+  #if 0
+  printf("------------------------------------------\n")
+  for (i = 0; i < 256; ++i)
+  {
+    if (i > 0)
+      printf(" ");
+    if (i % 16 == 0)
+      printf("\n");
+    printf("0x%02x", bytes[i]);
+  }
+  printf("\n\n");
+  #endif
+
   *message = (rtMessage) malloc(sizeof(struct _rtMessage));
   if (message)
   {

@@ -103,12 +103,11 @@ rtConnection_ConnectAndRegister(rtConnection con)
     close(con->fd);
 
   rtLogInfo("connecting to router");
-  con->fd = socket(AF_INET, SOCK_STREAM, 0);
+  con->fd = socket(con->remote_endpoint.ss_family, SOCK_STREAM, 0);
   if (con->fd == -1)
     return rtErrorFromErrno(errno);
 
   fcntl(con->fd, F_SETFD, fcntl(con->fd, F_GETFD) | FD_CLOEXEC);
-
   setsockopt(con->fd, SOL_TCP, TCP_NODELAY, &i, sizeof(i));
 
   int retry = 0;
@@ -467,6 +466,8 @@ rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
   num_attempts = 0;
   max_attempts = 4;
 
+  rtMessageHeader_Init(&hdr);
+
   // TODO: no error handling right now, all synch I/O
 
   do
@@ -481,11 +482,22 @@ rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
       err = rtConnection_ReadUntil(con, con->recv_buffer + 4, (hdr.header_length-4), timeout);
     }
 
+    rtLogInfo("read:%s", rtStrError(err));
     if (err == RT_OK)
+    {
       err = rtMessageHeader_Decode(&hdr, con->recv_buffer);
+      rtLogInfo("decode:%s -- %s", rtStrError(err), hdr.topic);
+    }
 
     if (err == RT_OK)
+    {
       err = rtConnection_ReadUntil(con, con->recv_buffer + hdr.header_length, hdr.payload_length, timeout);
+      if (err == RT_OK)
+      {
+        // help out json parsers and other string parses
+        con->recv_buffer[hdr.header_length + hdr.payload_length] = '\0';
+      }
+    }
 
     if (err != RT_OK && rtConnection_ShouldReregister(err))
     {

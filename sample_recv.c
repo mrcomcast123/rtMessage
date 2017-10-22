@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 void onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void* closure)
@@ -38,8 +39,8 @@ void onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void
   rtLogInfo("\nSub item: \t%.*s", num, itemstring);
   rtMessage_ToString(m, &s, &n);
 
-  rtLogInfo("\nTOPIC:%s", hdr->topic);
-  rtLogInfo("\t%.*s", n, s);
+  rtLogInfo("\tTOPIC: [%d] %s", (int) strlen(hdr->topic), hdr->topic);
+  rtLogInfo("\t[%d] -- %.*s", n, n, s);
 
   free(s);
   free(itemstring);

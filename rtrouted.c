@@ -19,6 +19,7 @@
 #include "rtError.h"
 #include "rtMessageHeader.h"
 #include "rtSocket.h"
+#include "rtVector.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -76,12 +77,12 @@ typedef struct
 typedef struct
 {
   int fd;
-  int set;
-  struct sockaddr_storage endpoint;
+  struct sockaddr_storage local_endpoint;
 } rtListener;
 
-rtConnectedClient clients[RTMSG_MAX_CONNECTED_CLIENTS];
-rtListener        listeners[RTMSG_MAX_LISTENERS];
+rtVector clients;
+rtVector listeners;
+//rtListener        listeners[RTMSG_MAX_LISTENERS];
 rtRouteEntry      routes[RTMSG_MAX_ROUTES];
 
 static void
@@ -113,6 +114,7 @@ rtRouted_AddRoute(rtRouteMessageHandler handler, char* exp, rtSubscription* subs
   routes[i].in_use = 1;
   routes[i].subscription = subscription;
   routes[i].message_handler = handler;
+  memset(routes[i].expression, 0, RTMSG_MAX_EXPRESSION_LEN);
   strcpy(routes[i].expression, exp);
   rtLogInfo("client [%s] added new route:%s", subscription->client->ident, exp);
 
@@ -145,12 +147,16 @@ rtConnectedClient_Destroy(rtConnectedClient* clnt)
 {
   rtRouted_ClearClientRoutes(clnt);
 
-  close(clnt->fd);
-  clnt->fd = RTMSG_INVALID_FD;
+  if (clnt->fd != -1)
+    close(clnt->fd);
+
   if (clnt->read_buffer)
     free(clnt->read_buffer);
+
   if (clnt->send_buffer)
     free(clnt->send_buffer);
+
+  free(clnt);
 }
 
 static rtError
@@ -310,6 +316,9 @@ rtConnectedClient_Init(rtConnectedClient* clnt, int fd, struct sockaddr_storage*
   clnt->read_buffer = (uint8_t *) malloc(RTMSG_CLIENT_READ_BUFFER_SIZE);
   clnt->send_buffer = (uint8_t *) malloc(RTMSG_CLIENT_READ_BUFFER_SIZE);
   memcpy(&clnt->endpoint, remote_endpoint, sizeof(struct sockaddr_storage));
+  memset(clnt->read_buffer, 0, RTMSG_CLIENT_READ_BUFFER_SIZE);
+  memset(clnt->send_buffer, 0, RTMSG_CLIENT_READ_BUFFER_SIZE);
+  rtMessageHeader_Init(&clnt->header);
 }
 
 static void
@@ -334,7 +343,7 @@ rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt) // rtMessageHeader* 
   }
 }
 
-static void
+static rtError 
 rtConnectedClient_Read(rtConnectedClient* clnt)
 {
   ssize_t bytes_read;
@@ -345,13 +354,13 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
   {
     rtError e = rtErrorFromErrno(errno);
     rtLogWarn("read:%s", rtStrError(e));
-    return;
+    return e;
   }
 
   if (bytes_read == 0)
   {
-    rtConnectedClient_Destroy(clnt);
-    return;
+    rtLogDebug("read zero bytes, stream closed");
+    return RT_ERROR_STREAM_CLOSED;
   }
 
   clnt->bytes_read += bytes_read;
@@ -387,8 +396,7 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
     {
       if (clnt->bytes_read == clnt->bytes_to_read)
       {
-        rtRouter_DispatchMessageFromClient(clnt); // &clnt->header, clnt->read_buffer + clnt->header.length,
-//          clnt->header.payload_length);
+        rtRouter_DispatchMessageFromClient(clnt);
         clnt->bytes_to_read = 4;
         clnt->bytes_read = 0;
         clnt->state = rtConnectionState_ReadHeaderPreamble;
@@ -397,6 +405,8 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
     }
     break;
   }
+
+  return RT_OK;
 }
 
 static void
@@ -413,30 +423,21 @@ rtRouted_PushFd(fd_set* fds, int fd, int* maxFd)
 static void
 rtRouted_RegisterNewClient(int fd, struct sockaddr_storage* remote_endpoint)
 {
-  int i;
   char remote_address[64];
   uint16_t remote_port;
+  rtConnectedClient* new_client;
 
   remote_address[0] = '\0';
   remote_port = 0;
+  new_client = (rtConnectedClient *) malloc(sizeof(rtConnectedClient));
+  new_client->fd = -1;
 
-  for (i = 0; i < RTMSG_MAX_CONNECTED_CLIENTS; ++i)
-  {
-    if (clients[i].fd == RTMSG_INVALID_FD)
-      break;
-  }
+  rtConnectedClient_Init(new_client, fd, remote_endpoint);
+  rtSocketStorage_ToString(&new_client->endpoint, remote_address, sizeof(remote_address), &remote_port);
+  snprintf(new_client->ident, RTMSG_ADDR_MAX, "%s:%d/%d", remote_address, remote_port, fd);
+  rtVector_PushBack(clients, new_client);
 
-  if (i >= RTMSG_MAX_CONNECTED_CLIENTS)
-  {
-    rtLogError("no more free client slots available");
-    return;
-  }
-
-  rtConnectedClient_Init(&clients[i], fd, remote_endpoint);
-
-  rtSocketStorage_ToString(&clients[i].endpoint, remote_address, sizeof(remote_address), &remote_port);
-  snprintf(clients[i].ident, RTMSG_ADDR_MAX, "%s:%d/%d", remote_address, remote_port, fd);
-  rtLogInfo("new client:%s", clients[i].ident);
+  rtLogInfo("new client:%s", new_client->ident);
 }
 
 static void
@@ -459,57 +460,35 @@ rtRouted_AcceptClientConnection(rtListener* listener)
   rtRouted_RegisterNewClient(fd, &remote_endpoint);
 }
 
-static void
-rtRouted_BindListener(char const* addr, uint16_t port, int noDelay)
+static rtError 
+rtRouted_BindListener(char const* socket_name, int no_delay)
 {
-  int             i;
-  int             ret;
-  socklen_t       socketLength;
-  rtListener*     listener;
+  int ret;
+  rtError err;
+  socklen_t socket_length;
+  rtListener* listener;
 
-  rtLogInfo("binding listener to %s:%d", addr, port);
+  listener = (rtListener *) malloc(sizeof(rtListener));
+  memset(&listener->local_endpoint, 0, sizeof(struct sockaddr_storage));
 
-  listener = NULL;
-  for (i = 0; i < RTMSG_MAX_LISTENERS; ++i)
-  {
-    if (!listeners[i].set)
-    {
-      listener = &listeners[i];
-      break;
-    }
-  }
+  err = rtSocketStorage_FromString(&listener->local_endpoint, socket_name);
+  if (err != RT_OK)
+    return err;
 
-  if (!listener)
-  {
-    abort();
-  }
-
-  struct sockaddr_in* listenEndpoint4 = (struct sockaddr_in *) &listener->endpoint;
-
-  listener->fd = socket(AF_INET, SOCK_STREAM, 0);
+  listener->fd = socket(listener->local_endpoint.ss_family, SOCK_STREAM, 0);
   if (listener->fd == -1)
   {
     rtLogFatal("socket:%s", rtStrError(errno));
     exit(1);
   }
 
-  if (noDelay)
+  if (no_delay)
   {
     uint32_t one = 1;
-    setsockopt(listeners[0].fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
+    setsockopt(listener->fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
   }
 
-  // TODO: handle v6
-  ret = inet_pton(AF_INET, addr, &listenEndpoint4->sin_addr);
-  if (ret == -1)
-  {
-    rtLogWarn("failed to parse address '%s'. %s", addr, rtStrError(errno));
-    exit(1);
-  }
-  listenEndpoint4->sin_family = AF_INET;
-  listenEndpoint4->sin_port = htons(port);
-  listener->endpoint.ss_family = AF_INET;
-  socketLength = sizeof(struct sockaddr_in);
+  rtSocketStorage_GetLength(&listener->local_endpoint, &socket_length);
 
   {
     int reuse = 1;
@@ -521,7 +500,7 @@ rtRouted_BindListener(char const* addr, uint16_t port, int noDelay)
     }
   }
 
-  ret = bind(listener->fd, (struct sockaddr *)&listener->endpoint, socketLength);
+  ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
   if (ret == -1)
   {
     rtLogWarn("failed to bind socket. %s", rtStrError(errno));
@@ -535,7 +514,8 @@ rtRouted_BindListener(char const* addr, uint16_t port, int noDelay)
     exit(1);
   }
 
-  listener->set = 1;
+  rtVector_PushBack(listeners, listener);
+  return RT_OK;
 }
 
 int main(int argc, char* argv[])
@@ -545,15 +525,15 @@ int main(int argc, char* argv[])
   int run_in_foreground;
   int use_no_delay;
   int ret;
-  int port;
   char const* socket_name;
 
   run_in_foreground = 0;
   use_no_delay = 0;
-  port = 10001;
-  socket_name = "127.0.0.1:10001";
+  socket_name = "tcp://127.0.0.1:10001";
 
   rtLogSetLevel(RT_LOG_INFO);
+  rtVector_Create(&clients);
+  rtVector_Create(&listeners);
 
   FILE* pid_file = fopen("/tmp/rtrouted.pid", "w");
   if (!pid_file)
@@ -570,27 +550,15 @@ int main(int argc, char* argv[])
     exit(12);
   }
 
-
-  for (i = 0; i < RTMSG_MAX_CONNECTED_CLIENTS; ++i)
-  {
-    clients[i].fd = RTMSG_INVALID_FD;
-    memset(&clients[i].endpoint, 0, sizeof(struct sockaddr_storage));
-  }
-
   for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
   {
     routes[i].subscription = NULL;
     routes[i].message_handler = NULL;
     routes[i].expression[0] = '\0';
+    memset(routes[i].expression, 0, RTMSG_MAX_EXPRESSION_LEN);
     routes[i].in_use = 0;
   }
 
-  for (i = 0; i < RTMSG_MAX_LISTENERS; ++i)
-  {
-    listeners[i].set = 0;
-    listeners[i].fd = RTMSG_INVALID_FD;
-    memset(&listeners[i].endpoint, 0, sizeof(struct sockaddr_storage));
-  }
 
   rtLogSetLogHandler(NULL);
 
@@ -662,10 +630,11 @@ int main(int argc, char* argv[])
     rtLogInfo("running in foreground");
   }
 
-  rtRouted_BindListener(socket_name, port, use_no_delay);
+  rtRouted_BindListener(socket_name, use_no_delay);
 
   while (1)
   {
+    int n;
     int                         max_fd;
     fd_set                      read_fds;
     fd_set                      err_fds;
@@ -677,16 +646,24 @@ int main(int argc, char* argv[])
     timeout.tv_sec = 10;
     timeout.tv_usec = 0;
 
-    for (i = 0; i < RTMSG_MAX_LISTENERS; ++i)
+    for (i = 0, n = rtVector_Size(listeners); i < n; ++i)
     {
-      rtRouted_PushFd(&read_fds, listeners[i].fd, &max_fd);
-      rtRouted_PushFd(&err_fds, listeners[i].fd, &max_fd);
+      rtListener* listener = (rtListener *) rtVector_At(listeners, i);
+      if (listener)
+      {
+        rtRouted_PushFd(&read_fds, listener->fd, &max_fd);
+        rtRouted_PushFd(&err_fds, listener->fd, &max_fd);
+      }
     }
 
-    for (i = 0; i < RTMSG_MAX_CONNECTED_CLIENTS; ++i)
+    for (i = 0, n = rtVector_Size(clients); i < n; ++i)
     {
-      rtRouted_PushFd(&read_fds, clients[i].fd, &max_fd);
-      rtRouted_PushFd(&err_fds, clients[i].fd, &max_fd);
+      rtConnectedClient* clnt = (rtConnectedClient *) rtVector_At(clients, i);
+      if (clnt)
+      {
+        rtRouted_PushFd(&read_fds, clnt->fd, &max_fd);
+        rtRouted_PushFd(&err_fds, clnt->fd, &max_fd);
+      }
     }
 
     ret = select(max_fd + 1, &read_fds, NULL, &err_fds, &timeout);
@@ -699,24 +676,33 @@ int main(int argc, char* argv[])
       continue;
     }
 
-    for (i = 0; i < RTMSG_MAX_LISTENERS; ++i)
+    for (i = 0, n = rtVector_Size(listeners); i < n; ++i)
     {
-      if (listeners[i].fd == RTMSG_INVALID_FD)
-        continue;
-
-      if (FD_ISSET(listeners[0].fd, &read_fds))
-        rtRouted_AcceptClientConnection(&listeners[0]);
+      rtListener* listener = (rtListener *) rtVector_At(listeners, i);
+      if (FD_ISSET(listener->fd, &read_fds))
+        rtRouted_AcceptClientConnection(listener);
     }
 
-    for (i = 0;  i < RTMSG_MAX_CONNECTED_CLIENTS; ++i)
+    for (i = 0, n = rtVector_Size(clients); i < n;)
     {
-      if (clients[i].fd == RTMSG_INVALID_FD)
-        continue;
-
-      if (FD_ISSET(clients[i].fd, &read_fds))
-        rtConnectedClient_Read(&clients[i]);
+      rtConnectedClient* clnt = (rtConnectedClient *) rtVector_At(clients, i);
+      if (FD_ISSET(clnt->fd, &read_fds))
+      {
+        rtError err = rtConnectedClient_Read(clnt);
+        if (err != RT_OK)
+        {
+          rtVector_RemoveItem(clients, clnt, NULL);
+          rtConnectedClient_Destroy(clnt);
+          n--;
+          continue;
+        }
+      }
+      i++;
     }
   }
+
+  rtVector_Destroy(listeners, NULL);
+  rtVector_Destroy(clients, NULL);
 
   return 0;
 }
