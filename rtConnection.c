@@ -102,7 +102,7 @@ rtConnection_ConnectAndRegister(rtConnection con)
   if (con->fd != -1)
     close(con->fd);
 
-  rtLogInfo("connecting to router");
+  rtLog_Info("connecting to router");
   con->fd = socket(con->remote_endpoint.ss_family, SOCK_STREAM, 0);
   if (con->fd == -1)
     return rtErrorFromErrno(errno);
@@ -138,7 +138,7 @@ rtConnection_ConnectAndRegister(rtConnection con)
 
     rtSocketStorage_ToString(&con->local_endpoint, local_addr, sizeof(local_addr), &local_port);
     rtSocketStorage_ToString(&con->remote_endpoint, remote_addr, sizeof(remote_addr), &remote_port);
-    rtLogInfo("connect %s:%d -> %s:%d", local_addr, local_port, remote_addr, remote_port);
+    rtLog_Info("connect %s:%d -> %s:%d", local_addr, local_port, remote_addr, remote_port);
   }
 
   for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
@@ -171,7 +171,7 @@ rtConnection_EnsureRoutingDaemon()
     return RT_OK;
 
   if (ret != 0)
-    rtLogError("Cannot run rtrouted. Code:%d", ret);
+    rtLog_Error("Cannot run rtrouted. Code:%d", ret);
 
   return RT_OK;
 }
@@ -204,7 +204,7 @@ rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count, int32_t timeo
       if (errno == EINTR)
         continue;
       rtError e = rtErrorFromErrno(errno);
-      rtLogError("failed to read from fd %d. %s", con->fd, rtStrError(e));
+      rtLog_Error("failed to read from fd %d. %s", con->fd, rtStrError(e));
       return e;
     }
     bytes_read += n;
@@ -251,7 +251,7 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
   err = rtSocketStorage_FromString(&c->remote_endpoint, router_config);
   if (err != RT_OK)
   {
-    rtLogWarn("failed to parse:%s. %s", router_config, rtStrError(err));
+    rtLog_Warn("failed to parse:%s. %s", router_config, rtStrError(err));
     free(c);
     return err;
   }
@@ -482,11 +482,9 @@ rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
       err = rtConnection_ReadUntil(con, con->recv_buffer + 4, (hdr.header_length-4), timeout);
     }
 
-    rtLogInfo("read:%s", rtStrError(err));
     if (err == RT_OK)
     {
       err = rtMessageHeader_Decode(&hdr, con->recv_buffer);
-      rtLogInfo("decode:%s -- %s", rtStrError(err), hdr.topic);
     }
 
     if (err == RT_OK)
@@ -514,7 +512,7 @@ rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
     {
       if (con->listeners[i].in_use && (con->listeners[i].subscription_id == hdr.control_data))
       {
-        rtLogDebug("found subscription match:%d", i);
+        rtLog_Debug("found subscription match:%d", i);
         break;
       }
     }

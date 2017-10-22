@@ -27,7 +27,7 @@ rtSocketStorage_ParsePort(char const* s, uint16_t* port)
   char const* p = strrchr(s, ':');
   if (!p)
   {
-    rtLogError("failed to parse port from address:%s", s);
+    rtLog_Error("failed to parse port from address:%s", s);
     return RT_ERROR_INVALID_ARG;
   }
 
@@ -45,6 +45,9 @@ rtSocketStorage_GetLength(struct sockaddr_storage* endpoint, socklen_t* len)
       break;
     case AF_INET6:
       *len = sizeof(struct sockaddr_in6);
+      break;
+    case AF_UNIX:
+      *len = sizeof(struct sockaddr_un);
       break;
     default:
       abort();
@@ -88,7 +91,7 @@ rtSocket_GetLocalEndpoint(int fd, struct sockaddr_storage* endpoint)
   memset(endpoint, 0, sizeof(struct sockaddr_storage));
 
   if ((ret = getsockname(fd, (struct sockaddr *)endpoint, &len)) == -1)
-    rtLogError("getsockname:%s", rtStrError(errno));
+    rtLog_Error("getsockname:%s", rtStrError(errno));
 
   return RT_OK;
 }
@@ -127,12 +130,12 @@ rtSocketStorage_FromString(struct sockaddr_storage* ss, char const* addr)
   char const* p = strrchr(addr + 6, ':');
   if (!p)
   {
-    rtLogWarn("invalid address string:%s", (addr+6));
+    rtLog_Warn("invalid address string:%s", (addr+6));
     return RT_ERROR_INVALID_ARG;
   }
 
   strncpy(ip, addr+6, (p-addr-6));
-  rtLogInfo("parsing ip address:%s", ip);
+  rtLog_Info("parsing ip address:%s", ip);
 
   v4 = (struct sockaddr_in *) ss;
   ret = inet_pton(AF_INET, ip, &v4->sin_addr);

@@ -44,7 +44,7 @@ static void sendResponse(rtMessageHeader const* hdr, rtMessage const req,
 
   err = rtConnection_SendMessage(ctx->con, res, hdr->reply_topic);
   if (err != RT_OK)
-    rtLogWarn("failed to send response. %s", rtStrError(err));
+    rtLog_Warn("failed to send response. %s", rtStrError(err));
 }
 
 static void onGet(rtMessageHeader const* hdr, rtMessage const req, rtDataModelProviderContext* ctx)
@@ -82,14 +82,14 @@ onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void* clo
   err = rtMessage_Create(&res);
   if (err != RT_OK)
   {
-    rtLogError("failed to create message. %s", rtStrError(err));
+    rtLog_Error("failed to create message. %s", rtStrError(err));
     return;
   }
 
   err = rtMessage_GetStringValue(req, "method", method, sizeof(method));
   if (err != RT_OK)
   {
-    rtLogError("request doesn't include an operation. %s", rtStrError(err));
+    rtLog_Error("request doesn't include an operation. %s", rtStrError(err));
     return;
   }
 
@@ -115,13 +115,13 @@ rtDataModelRegisterProvider(rtConnection con, char const* object_name, rtDataMod
     err = ops->init(&handle);
     if (err != RT_OK)
     {
-      rtLogError("failed to initialize operations. %s", rtStrError(err));
+      rtLog_Error("failed to initialize operations. %s", rtStrError(err));
       return RT_FAIL;
     }
   }
   else
   {
-    rtLogError("invalid argument");
+    rtLog_Error("invalid argument");
     return RT_ERROR_INVALID_ARG;
   }
 
@@ -136,7 +136,7 @@ rtDataModelRegisterProvider(rtConnection con, char const* object_name, rtDataMod
   err = rtConnection_AddListener(con, subscription, onMessage, ctx);
   if (err != RT_OK)
   {
-    rtLogWarn("failed to add listener for object: %s. %s", subscription, rtStrError(err));
+    rtLog_Warn("failed to add listener for object: %s. %s", subscription, rtStrError(err));
     free(ctx);
     return RT_FAIL;
   }

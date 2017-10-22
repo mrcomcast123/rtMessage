@@ -53,7 +53,7 @@ typedef enum
 
 typedef void (*rtLogHandler)(rtLogLevel level, const char* file, int line, int threadId, char* message);
 
-void rtLogSetLevel(rtLogLevel l);
+void rtLog_SetLevel(rtLogLevel l);
 void rtLogSetLogHandler(rtLogHandler logHandler);
 const char* rtLogLevelToString(rtLogLevel level);
 rtLogLevel  rtLogLevelFromString(const char* s);
@@ -71,11 +71,11 @@ rtThreadId rtThreadGetCurrentId();
 void rtLogPrintf(rtLogLevel level, const char* file, int line, const char* format, ...) RT_PRINTF_FORMAT(4, 5);
 
 #define rtLog(LEVEL, FORMAT, ...) do { rtLogPrintf(LEVEL, __FILE__, __LINE__, FORMAT, ## __VA_ARGS__); } while (0)
-#define rtLogDebug(FORMAT, ...) rtLog(RT_LOG_DEBUG, FORMAT, ## __VA_ARGS__)
-#define rtLogInfo(FORMAT, ...) rtLog(RT_LOG_INFO, FORMAT, ## __VA_ARGS__)
-#define rtLogWarn(FORMAT, ...) rtLog(RT_LOG_WARN, FORMAT, ## __VA_ARGS__)
-#define rtLogError(FORMAT, ...) rtLog(RT_LOG_ERROR, FORMAT, ## __VA_ARGS__)
-#define rtLogFatal(FORMAT, ...) rtLog(RT_LOG_FATAL, FORMAT, ## __VA_ARGS__)
+#define rtLog_Debug(FORMAT, ...) rtLog(RT_LOG_DEBUG, FORMAT, ## __VA_ARGS__)
+#define rtLog_Info(FORMAT, ...) rtLog(RT_LOG_INFO, FORMAT, ## __VA_ARGS__)
+#define rtLog_Warn(FORMAT, ...) rtLog(RT_LOG_WARN, FORMAT, ## __VA_ARGS__)
+#define rtLog_Error(FORMAT, ...) rtLog(RT_LOG_ERROR, FORMAT, ## __VA_ARGS__)
+#define rtLog_Fatal(FORMAT, ...) rtLog(RT_LOG_FATAL, FORMAT, ## __VA_ARGS__)
 
 #endif 
 

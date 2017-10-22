@@ -38,8 +38,7 @@ ifeq ($(PROFILE), 1)
   CFLAGS += -pg
 endif
 
-#CFLAGS+=-Werror -Wall -Wextra -DRT_PLATFORM_LINUX -I. -fPIC
-CFLAGS+=-Wall -Wextra -DRT_PLATFORM_LINUX -I. -fPIC
+CFLAGS+=-Werror -Wall -Wextra -DRT_PLATFORM_LINUX -I. -fPIC
 LDFLAGS=-L. -pthread
 OBJDIR=obj
 

@@ -36,7 +36,7 @@ void onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void
   rtMessage_Create(&item);
   rtMessage_GetMessage(m, "new", &item);
   rtMessage_ToString(item, &itemstring, &num);
-  rtLogInfo("\nSub item: \t%.*s", num, itemstring);
+  rtLog_Info("\nSub item: \t%.*s", num, itemstring);
   rtMessage_ToString(m, &s, &n);
 
   rtLogInfo("\tTOPIC: [%d] %s", (int) strlen(hdr->topic), hdr->topic);

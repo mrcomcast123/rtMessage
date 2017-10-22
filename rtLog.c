@@ -57,7 +57,7 @@ void setLogLevelFromEnvironment()
       fprintf(stderr, "invalid RT_LOG_LEVEL set: %s", s);
       abort();
     }
-    rtLogSetLevel(level);
+    rtLog_SetLevel(level);
   }
 }
 
@@ -130,7 +130,7 @@ void rtLogSetLogHandler(rtLogHandler logHandler)
 }
 
 static rtLogLevel sLevel = RT_LOG_WARN;
-void rtLogSetLevel(rtLogLevel level)
+void rtLog_SetLevel(rtLogLevel level)
 {
   sLevel = level;
 }

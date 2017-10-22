@@ -24,7 +24,7 @@ int main()
   rtError err;
   int count = 0;
 
-  rtLogSetLevel(RT_LOG_INFO);
+  rtLog_SetLevel(RT_LOG_INFO);
 
   rtConnection con;
   rtConnection_Create(&con, "APP1", "tcp://127.0.0.1:10001");
@@ -41,7 +41,7 @@ int main()
     rtMessage_SetMessage(m, "new", item);
 
     err = rtConnection_SendMessage(con, m, "A.B.C");
-    rtLogInfo("send[%s]: %s", "A.B.C", rtStrError(err));
+    rtLog_Info("send[%s]: %s", "A.B.C", rtStrError(err));
 
     rtMessage_Destroy(m);
     sleep(1);
@@ -50,7 +50,7 @@ int main()
     rtMessage_SetInt32(m, "field1", 1234);
 
     err = rtConnection_SendMessage(con, m, "A.B.C.FOO.BAR");
-    rtLogInfo("send[%s]: %s", "A.B.C.FOO.BAR", rtStrError(err));
+    rtLog_Info("send[%s]: %s", "A.B.C.FOO.BAR", rtStrError(err));
 
     rtMessage_Destroy(m);
     sleep(1);

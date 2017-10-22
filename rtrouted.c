@@ -116,7 +116,7 @@ rtRouted_AddRoute(rtRouteMessageHandler handler, char* exp, rtSubscription* subs
   routes[i].message_handler = handler;
   memset(routes[i].expression, 0, RTMSG_MAX_EXPRESSION_LEN);
   strcpy(routes[i].expression, exp);
-  rtLogInfo("client [%s] added new route:%s", subscription->client->ident, exp);
+  rtLog_Info("client [%s] added new route:%s", subscription->client->ident, exp);
 
   return RT_OK;
 }
@@ -190,7 +190,7 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
     }
     else
     {
-      rtLogWarn("error forwarding message to client. %d %s", errno, strerror(errno));
+      rtLog_Warn("error forwarding message to client. %d %s", errno, strerror(errno));
     }
     return RT_FAIL;
   }
@@ -204,7 +204,7 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
     }
     else
     {
-      rtLogWarn("error forwarding message to client. %d %s", errno, strerror(errno));
+      rtLog_Warn("error forwarding message to client. %d %s", errno, strerror(errno));
     }
     return RT_FAIL;
   }
@@ -264,7 +264,7 @@ rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t cons
   }
   else
   {
-    rtLogInfo("no handler for message:%s", hdr->topic);
+    rtLog_Info("no handler for message:%s", hdr->topic);
   }
   return RT_OK;
 }
@@ -353,13 +353,13 @@ rtConnectedClient_Read(rtConnectedClient* clnt)
   if (bytes_read == -1)
   {
     rtError e = rtErrorFromErrno(errno);
-    rtLogWarn("read:%s", rtStrError(e));
+    rtLog_Warn("read:%s", rtStrError(e));
     return e;
   }
 
   if (bytes_read == 0)
   {
-    rtLogDebug("read zero bytes, stream closed");
+    rtLog_Debug("read zero bytes, stream closed");
     return RT_ERROR_STREAM_CLOSED;
   }
 
@@ -437,7 +437,7 @@ rtRouted_RegisterNewClient(int fd, struct sockaddr_storage* remote_endpoint)
   snprintf(new_client->ident, RTMSG_ADDR_MAX, "%s:%d/%d", remote_address, remote_port, fd);
   rtVector_PushBack(clients, new_client);
 
-  rtLogInfo("new client:%s", new_client->ident);
+  rtLog_Info("new client:%s", new_client->ident);
 }
 
 static void
@@ -453,7 +453,7 @@ rtRouted_AcceptClientConnection(rtListener* listener)
   fd = accept(listener->fd, (struct sockaddr *)&remote_endpoint, &socket_length);
   if (fd == -1)
   {
-    rtLogWarn("accept:%s", rtStrError(errno));
+    rtLog_Warn("accept:%s", rtStrError(errno));
     return;
   }
 
@@ -478,7 +478,7 @@ rtRouted_BindListener(char const* socket_name, int no_delay)
   listener->fd = socket(listener->local_endpoint.ss_family, SOCK_STREAM, 0);
   if (listener->fd == -1)
   {
-    rtLogFatal("socket:%s", rtStrError(errno));
+    rtLog_Fatal("socket:%s", rtStrError(errno));
     exit(1);
   }
 
@@ -495,7 +495,7 @@ rtRouted_BindListener(char const* socket_name, int no_delay)
     ret = setsockopt(listener->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse));
     if (ret == -1)
     {
-      rtLogWarn("failed to set reuse addr on sockt. %s", rtStrError(errno));
+      rtLog_Warn("failed to set reuse addr on sockt. %s", rtStrError(errno));
       exit(1);
     }
   }
@@ -503,14 +503,14 @@ rtRouted_BindListener(char const* socket_name, int no_delay)
   ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
   if (ret == -1)
   {
-    rtLogWarn("failed to bind socket. %s", rtStrError(errno));
+    rtLog_Warn("failed to bind socket. %s", rtStrError(errno));
     exit(1);
   }
 
   ret = listen(listener->fd, 4);
   if (ret == -1)
   {
-    rtLogWarn("failed to set socket to listen mode. %s", rtStrError(errno));
+    rtLog_Warn("failed to set socket to listen mode. %s", rtStrError(errno));
     exit(1);
   }
 
@@ -531,7 +531,7 @@ int main(int argc, char* argv[])
   use_no_delay = 0;
   socket_name = "tcp://127.0.0.1:10001";
 
-  rtLogSetLevel(RT_LOG_INFO);
+  rtLog_SetLevel(RT_LOG_INFO);
   rtVector_Create(&clients);
   rtVector_Create(&listeners);
 
@@ -546,7 +546,7 @@ int main(int argc, char* argv[])
   int retval = flock(fd, LOCK_EX | LOCK_NB);
   if (retval != 0 && errno == EWOULDBLOCK)
   {
-    rtLogInfo("another instance of rtrouted is already running");
+    rtLog_Info("another instance of rtrouted is already running");
     exit(12);
   }
 
@@ -597,7 +597,7 @@ int main(int argc, char* argv[])
         run_in_foreground = 1;
         break;
       case 'l':
-        rtLogSetLevel(rtLogLevelFromString(optarg));
+        rtLog_SetLevel(rtLogLevelFromString(optarg));
         break;
       case 'h':
         rtRouted_PrintHelp();
@@ -621,13 +621,13 @@ int main(int argc, char* argv[])
     ret = daemon(0 /*chdir to "/"*/, 1 /*redirect stdout/stderr to /dev/null*/ );
     if (ret == -1)
     {
-      rtLogFatal("failed to fork off daemon. %s", rtStrError(errno));
+      rtLog_Fatal("failed to fork off daemon. %s", rtStrError(errno));
       exit(1);
     }
   }
   else
   {
-    rtLogInfo("running in foreground");
+    rtLog_Info("running in foreground");
   }
 
   rtRouted_BindListener(socket_name, use_no_delay);
@@ -672,7 +672,7 @@ int main(int argc, char* argv[])
 
     if (ret == -1)
     {
-      rtLogWarn("select:%s", rtStrError(errno));
+      rtLog_Warn("select:%s", rtStrError(errno));
       continue;
     }
 
