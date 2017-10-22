@@ -469,6 +469,7 @@ rtRouted_BindListener(char const* socket_name, int no_delay)
   rtListener* listener;
 
   listener = (rtListener *) malloc(sizeof(rtListener));
+  listener->fd = -1;
   memset(&listener->local_endpoint, 0, sizeof(struct sockaddr_storage));
 
   err = rtSocketStorage_FromString(&listener->local_endpoint, socket_name);
@@ -482,28 +483,22 @@ rtRouted_BindListener(char const* socket_name, int no_delay)
     exit(1);
   }
 
-  if (no_delay)
-  {
-    uint32_t one = 1;
-    setsockopt(listener->fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
-  }
-
   rtSocketStorage_GetLength(&listener->local_endpoint, &socket_length);
 
+  if (listener->local_endpoint.ss_family != AF_UNIX)
   {
-    int reuse = 1;
-    ret = setsockopt(listener->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse));
-    if (ret == -1)
-    {
-      rtLog_Warn("failed to set reuse addr on sockt. %s", rtStrError(errno));
-      exit(1);
-    }
+    uint32_t one = 1;
+    if (no_delay)
+      setsockopt(listener->fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
+
+    ret = setsockopt(listener->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&one, sizeof(one));
   }
 
   ret = bind(listener->fd, (struct sockaddr *)&listener->local_endpoint, socket_length);
   if (ret == -1)
   {
-    rtLog_Warn("failed to bind socket. %s", rtStrError(errno));
+    rtError err = rtErrorFromErrno(errno);
+    rtLog_Warn("failed to bind socket. %s", rtStrError(err));
     exit(1);
   }
 

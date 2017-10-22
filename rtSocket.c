@@ -58,25 +58,28 @@ rtSocketStorage_GetLength(struct sockaddr_storage* endpoint, socklen_t* len)
 rtError
 rtSocketStorage_ToString(struct sockaddr_storage* ss, char* buff, int n, uint16_t* port)
 {
-  void* addr;
-  int family;
-  struct sockaddr_in* v4;
-
-  *port = 0;
-  addr = NULL;
-  family = 0;
-  v4 = NULL;
-
   if (ss->ss_family == AF_INET)
   {
-    v4 = (struct sockaddr_in *) ss;
-    addr = &v4->sin_addr;
-    *port = ntohs(v4->sin_port);
-    family = AF_INET;
-  }
+    struct sockaddr_in* v4 = (struct sockaddr_in *) ss;
+    void* addr = &v4->sin_addr;
+    int family = AF_INET;
 
-  if (addr)
-    inet_ntop(family, addr, buff, n);
+    addr = &v4->sin_addr;
+    if (port)
+      *port = ntohs(v4->sin_port);
+    family = AF_INET;
+
+    if (addr)
+      inet_ntop(family, addr, buff, n);
+  }
+  else if (ss->ss_family == AF_UNIX)
+  {
+    struct sockaddr_un* un = (struct sockaddr_un *) ss;
+    if (port)
+      *port = 0;
+    strcpy(buff, "unix://");
+    strncat(buff, un->sun_path, (n - 7));
+  }
 
   return RT_OK;
 }
@@ -116,7 +119,7 @@ rtSocketStorage_FromString(struct sockaddr_storage* ss, char const* addr)
   {
     struct sockaddr_un* un = (struct sockaddr_un*) ss;
     un->sun_family = AF_UNIX;
-    strncpy(un->sun_path, addr + 7, UNIX_PATH_MAX);
+    strcpy(un->sun_path, addr + 7);
     return RT_OK;
   }
 

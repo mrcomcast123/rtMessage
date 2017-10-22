@@ -28,6 +28,7 @@ int main()
 
   rtConnection con;
   rtConnection_Create(&con, "APP1", "tcp://127.0.0.1:10001");
+//  rtConnection_Create(&con, "APP1", "unix:///tmp/rtrouted");
 
   while (1)
   {

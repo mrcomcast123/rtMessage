@@ -60,7 +60,7 @@ int main()
   ops.write = myProvider_Write;
   ops.getattr = myProvider_GetAttr;
 
-  rtLogSetLevel(RT_LOG_INFO);
+  rtLog_SetLevel(RT_LOG_INFO);
   rtConnection_Create(&con, "APP2", "tcp://127.0.0.1:10001");
 
   // rtConnection_AddListener(con, "A.*.C", onMessage, NULL);
@@ -69,7 +69,7 @@ int main()
   rtDataModelRegisterProvider(con, "Device.DeviceInfo.ProcessStatus.Process", &ops);
 
   while ((err = rtConnection_Dispatch(con)) == RT_OK)
-    rtLogInfo("dispatch:%s", rtStrError(err));
+    rtLog_Info("dispatch:%s", rtStrError(err));
 
   rtConnection_Destroy(con);
   return 0;

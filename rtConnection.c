@@ -106,6 +106,7 @@ rtConnection_ConnectAndRegister(rtConnection con)
   con->fd = socket(con->remote_endpoint.ss_family, SOCK_STREAM, 0);
   if (con->fd == -1)
     return rtErrorFromErrno(errno);
+  rtLog_Info("router connection up");
 
   fcntl(con->fd, F_SETFD, fcntl(con->fd, F_GETFD) | FD_CLOEXEC);
   setsockopt(con->fd, SOL_TCP, TCP_NODELAY, &i, sizeof(i));

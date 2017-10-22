@@ -39,8 +39,8 @@ void onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void
   rtLog_Info("\nSub item: \t%.*s", num, itemstring);
   rtMessage_ToString(m, &s, &n);
 
-  rtLogInfo("\tTOPIC: [%d] %s", (int) strlen(hdr->topic), hdr->topic);
-  rtLogInfo("\t[%d] -- %.*s", n, n, s);
+  rtLog_Info("\tTOPIC: [%d] %s", (int) strlen(hdr->topic), hdr->topic);
+  rtLog_Info("\t[%d] -- %.*s", n, n, s);
 
   free(s);
   free(itemstring);
@@ -52,15 +52,16 @@ int main()
   rtError err;
   rtConnection con;
 
-  rtLogSetLevel(RT_LOG_INFO);
+  rtLog_SetLevel(RT_LOG_INFO);
   rtConnection_Create(&con, "APP2", "tcp://127.0.0.1:10001");
+//  rtConnection_Create(&con, "APP2", "unix:///tmp/rtrouted");
   rtConnection_AddListener(con, "A.*.C", onMessage, NULL);
   rtConnection_AddListener(con, "A.B.C.>", onMessage, NULL);
 
   while (1)
   {
     err = rtConnection_Dispatch(con);
-    rtLogInfo("dispatch:%s", rtStrError(err));
+    rtLog_Info("dispatch:%s", rtStrError(err));
     if (err != RT_OK)
       sleep(1);
   }

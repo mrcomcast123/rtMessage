@@ -85,7 +85,7 @@ int main(int argc, char* argv[])
     exit(0);
   }
 
-  rtLogSetLevel(RT_LOG_WARN);
+  rtLog_SetLevel(RT_LOG_WARN);
   rtConnection_Create(&con, "rtsub", router);
   rtConnection_AddListener(con, argv[argc-1], on_message, NULL);
 
