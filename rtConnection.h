@@ -86,6 +86,10 @@ rtError
 rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topic,
   rtMessage* res, int32_t timeout);
 
+rtError
+rtConnection_SendResponse(rtConnection con, rtMessageHeader const* request_hdr, rtMessage const res,
+  int32_t timeout);
+
 /**
  * Register a callback for message receipt
  * @param con

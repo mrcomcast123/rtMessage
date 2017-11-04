@@ -1,4 +1,5 @@
-all: librtMessaging.so rtrouted sample_send sample_recv rtsub sample_provider
+all: librtMessaging.so rtrouted sample_send sample_recv rtsub sample_provider \
+  sample_req sample_res
 
 CC=gcc
 
@@ -24,7 +25,7 @@ ifeq ($V, 1)
   BUILD_CC_PRETTY = $(BUILD_CC)
 else
   LD_PRETTY = @echo "[LINK] $@" ; $(CXX)
-  CC_PRETTY = @echo " [CC] $<" ; $(CC)
+  CC_PRETTY = @echo " [CC] $@" ; $(CC)
   BUILD_CC_PRETTY = @echo " [CC] $<" ; $(BUILD_CXX)
 endif
 
@@ -55,7 +56,8 @@ debug:
 clean:
 	rm -rf obj *.o librtMessaging.so
 	rm -f rtrouted
-	rm -f sample_send sample_recv sample_provider
+	rm -f rtsub
+	rm -f sample_send sample_recv sample_provider sample_req sample_res
 
 librtMessaging.so: $(RTMSG_OBJS)
 	$(CC_PRETTY) $(RTMSG_OBJS) $(LDFLAGS) -LcJSON -lcjson -shared -o $@
@@ -71,6 +73,12 @@ sample_recv: librtMessaging.so sample_recv.c
 
 sample_provider: librtMessaging.so sample_provider.c
 	$(CC_PRETTY) $(CFLAGS) sample_provider.c -L. -lrtMessaging -o sample_provider -LcJSON -lcjson
+
+sample_req: librtMessaging.so sample_req.c
+	$(CC_PRETTY) $(CFLAGS) sample_req.c -L. -lrtMessaging -o sample_req -LcJSON -lcjson
+
+sample_res: librtMessaging.so sample_res.c
+	$(CC_PRETTY) $(CFLAGS) sample_res.c -L. -lrtMessaging -o sample_res -LcJSON -lcjson
 
 rtsub: librtMessaging.so rtsub.c
 	$(CC_PRETTY) $(CFLAGS) rtsub.c -L. -lrtMessaging -o rtsub -LcJSON -lcjson

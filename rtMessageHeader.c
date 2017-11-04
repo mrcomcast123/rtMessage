@@ -69,3 +69,16 @@ rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff)
   rtEncoder_DecodeString(&ptr, hdr->reply_topic, &hdr->reply_topic_length);
   return RT_OK;
 }
+
+rtError
+rtMessageHeader_SetIsRequest(rtMessageHeader* hdr)
+{
+  hdr->flags |= rtMessageFlags_Request;
+  return RT_OK;
+}
+
+int
+rtMessageHeader_IsRequest(rtMessageHeader const* hdr)
+{
+  return ((hdr->flags & rtMessageFlags_Request) == rtMessageFlags_Request ? 1 : 0);
+}

@@ -23,6 +23,12 @@
 // size of all fields in 
 // #define RTMSG_HEADER_SIZE (24 + (2 * RTMSG_HEADER_MAX_TOPIC_LENGTH))
 
+typedef enum
+{
+  rtMessageFlags_Request = 0x01,
+  rtMessageFlags_Response = 0x02
+} rtMessageFlags;
+
 typedef struct
 {
   uint16_t version;
@@ -40,5 +46,7 @@ typedef struct
 rtError rtMessageHeader_Init(rtMessageHeader* hdr);
 rtError rtMessageHeader_Encode(rtMessageHeader* hdr, uint8_t* buff);
 rtError rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff);
+rtError rtMessageHeader_SetIsRequest(rtMessageHeader* hdr);
+int     rtMessageHeader_IsRequest(rtMessageHeader const* hdr);
 
 #endif

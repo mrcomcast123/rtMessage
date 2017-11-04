@@ -59,18 +59,20 @@ struct _rtConnection
 
 static void onInboxMessage(rtMessageHeader const* hdr, uint8_t const* p, uint32_t n, void* closure)
 {
-  // struct _rtConnection* con = (struct _rtConnection *) closure;
-
-  (void) hdr;
-  (void) p;
-  (void) n;
-  (void) closure;
-
-  // rtMessage_CreateCopy(m, &con->response);
+  if (hdr->flags & rtMessageFlags_Response)
+  {
+    struct _rtConnection* con = (struct _rtConnection *) closure;
+    if (con->response != NULL)
+    {
+      rtMessage_Destroy(con->response);
+      con->response = NULL;
+    }
+    rtMessage_FromBytes(&con->response, p, n);
+  }
 }
 
 static rtError rtConnection_SendInternal(rtConnection con, char const* topic,
-  uint8_t const* buff, uint32_t n, char const* reply_topic);
+  uint8_t const* buff, uint32_t n, char const* reply_topic, int flags);
   
 
 static uint32_t
@@ -305,9 +307,25 @@ rtConnection_SendMessage(rtConnection con, rtMessage msg, char const* topic)
 }
 
 rtError
+rtConnection_SendResponse(rtConnection con, rtMessageHeader const* request_hdr, rtMessage const res, int32_t timeout)
+{
+  uint8_t* p;
+  uint32_t n;
+  rtError err;
+
+  rtMessage_ToByteArray(res, &p, &n);
+  err = rtConnection_SendInternal(con, request_hdr->reply_topic, p, n, NULL, rtMessageFlags_Response);
+  free(p);
+
+  (void) timeout;
+
+  return err;
+}
+
+rtError
 rtConnection_SendBinary(rtConnection con, char const* topic, uint8_t const* p, uint32_t n)
 {
-  return rtConnection_SendInternal(con, topic, p, n, NULL);
+  return rtConnection_SendInternal(con, topic, p, n, NULL, 0);
 }
 
 rtError
@@ -319,7 +337,7 @@ rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topi
   rtError err;
   rtMessage_ToByteArray(req, &p, &n);
 
-  err = rtConnection_SendInternal(con, topic, p, n, con->inbox_name);
+  err = rtConnection_SendInternal(con, topic, p, n, con->inbox_name, rtMessageFlags_Request);
   if (err != RT_OK)
     return err;
 
@@ -331,11 +349,12 @@ rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topi
   while ((now - start) < (timeout * 1000))
   {
     err = rtConnection_TimedDispatch(con, timeout);
-    if (err != RT_ERROR_TIMEOUT || err != RT_OK)
+    if (err != RT_ERROR_TIMEOUT && err != RT_OK)
       return err;
 
     if (con->response != NULL)
     {
+      // TODO: add ref counting to rtMessage
       *res = con->response;
       con->response = NULL;
       return RT_OK;
@@ -349,7 +368,7 @@ rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topi
 
 rtError
 rtConnection_SendInternal(rtConnection con, char const* topic, uint8_t const* buff,
-  uint32_t n, char const* reply_topic)
+  uint32_t n, char const* reply_topic, int flags)
 {
   rtError err;
   int num_attempts;
@@ -376,7 +395,7 @@ rtConnection_SendInternal(rtConnection con, char const* topic, uint8_t const* bu
     header.reply_topic_length = 0;
   }
   header.sequence_number = con->sequence_number++;
-  header.flags = 0;
+  header.flags = flags;
 
   err = rtMessageHeader_Encode(&header, con->send_buffer);
   if (err != RT_OK)

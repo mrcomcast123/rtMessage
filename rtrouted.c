@@ -36,10 +36,8 @@
 #include <sys/file.h>
 
 #define RTMSG_MAX_CONNECTED_CLIENTS 64
-#define RTMSG_MAX_ROUTES (RTMSG_MAX_CONNECTED_CLIENTS * 8)
 #define RTMSG_CLIENT_MAX_TOPICS 64
 #define RTMSG_CLIENT_READ_BUFFER_SIZE (1024 * 8)
-#define RTMSG_MAX_LISTENERS 4
 #define RTMSG_INVALID_FD -1
 #define RTMSG_MAX_EXPRESSION_LEN 128
 #define RTMSG_ADDR_MAX 128
@@ -71,7 +69,6 @@ typedef struct
   rtSubscription*       subscription;
   rtRouteMessageHandler message_handler;
   char                  expression[RTMSG_MAX_EXPRESSION_LEN];
-  int                   in_use;
 } rtRouteEntry;
 
 typedef struct
@@ -82,8 +79,9 @@ typedef struct
 
 rtVector clients;
 rtVector listeners;
+rtVector routes;
 //rtListener        listeners[RTMSG_MAX_LISTENERS];
-rtRouteEntry      routes[RTMSG_MAX_ROUTES];
+//rtRouteEntry      routes[RTMSG_MAX_ROUTES];
 
 static void
 rtRouted_PrintHelp()
@@ -101,41 +99,31 @@ rtRouted_PrintHelp()
 static rtError
 rtRouted_AddRoute(rtRouteMessageHandler handler, char* exp, rtSubscription* subscription)
 {
-  int i;
-  for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
-  {
-    if (!routes[i].in_use)
-      break;
-  }
-
-  if (i >= RTMSG_MAX_ROUTES)
-    return rtErrorFromErrno(ENOMEM);
-
-  routes[i].in_use = 1;
-  routes[i].subscription = subscription;
-  routes[i].message_handler = handler;
-  memset(routes[i].expression, 0, RTMSG_MAX_EXPRESSION_LEN);
-  strcpy(routes[i].expression, exp);
+  rtRouteEntry* route = (rtRouteEntry *) malloc(sizeof(rtRouteEntry));
+  route->subscription = subscription;
+  route->message_handler = handler;
+  strncpy(route->expression, exp, RTMSG_MAX_EXPRESSION_LEN);
+  rtVector_PushBack(routes, route);
   rtLog_Info("client [%s] added new route:%s", subscription->client->ident, exp);
-
   return RT_OK;
 }
 
 static rtError
 rtRouted_ClearClientRoutes(rtConnectedClient* clnt)
 {
-  int i;
-  for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
+  size_t i;
+  for (i = 0; i < rtVector_Size(routes);)
   {
-    if (!routes[i].in_use)
-      continue;
-    if (routes[i].subscription && routes[i].subscription->client == clnt)
+    rtRouteEntry* route = (rtRouteEntry *) rtVector_At(routes, i);
+    if (route->subscription && route->subscription->client == clnt)
     {
-      routes[i].in_use = 0;
-      routes[i].expression[0] = '\0';
-      routes[i].message_handler = NULL;
-      free(routes[i].subscription);
-      routes[i].subscription = NULL;
+      rtVector_RemoveItem(routes, route, NULL);
+      free(route->subscription);
+      free(route);
+    }
+    else
+    {
+      i++;
     }
   }
 
@@ -175,6 +163,7 @@ rtRouted_ForwardMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t
   new_header.payload_length = hdr->payload_length;
   new_header.topic_length = hdr->topic_length;
   new_header.reply_topic_length = hdr->reply_topic_length;
+  new_header.flags = hdr->flags;
   strcpy(new_header.topic, hdr->topic);
   strcpy(new_header.reply_topic, hdr->reply_topic);
   rtMessageHeader_Encode(&new_header, subscription->client->send_buffer);
@@ -322,24 +311,32 @@ rtConnectedClient_Init(rtConnectedClient* clnt, int fd, struct sockaddr_storage*
 }
 
 static void
-rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt) // rtMessageHeader* hdr, uint8_t* buff, int n)
+rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt)
 {
-  int i;
-  for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
-  {
-    if (!routes[i].in_use)
-      break;
+  size_t i;
+  size_t n;
 
-    if (rtRouted_IsTopicMatch(clnt->header.topic, routes[i].expression))
+  for (i = 0, n = rtVector_Size(routes); i < n;)
+  {
+    rtError err = RT_OK;
+    rtRouteEntry* route = (rtRouteEntry *) rtVector_At(routes, i);
+    if (rtRouted_IsTopicMatch(clnt->header.topic, route->expression))
     {
-      rtError err = routes[i].message_handler(clnt, &clnt->header, clnt->read_buffer +
-          clnt->header.header_length, clnt->header.payload_length, routes[i].subscription);
+      err = route->message_handler(clnt, &clnt->header, clnt->read_buffer +
+          clnt->header.header_length, clnt->header.payload_length, route->subscription);
+
       if (err != RT_OK)
       {
         if (err == rtErrorFromErrno(EBADF))
+        {
           rtRouted_ClearClientRoutes(clnt);
+          n = rtVector_Size(routes);
+        }
       }
     }
+
+    if (err == RT_OK)
+      i++;
   }
 }
 
@@ -521,6 +518,7 @@ int main(int argc, char* argv[])
   int use_no_delay;
   int ret;
   char const* socket_name;
+  rtRouteEntry* route;
 
   run_in_foreground = 0;
   use_no_delay = 0;
@@ -529,6 +527,7 @@ int main(int argc, char* argv[])
   rtLog_SetLevel(RT_LOG_INFO);
   rtVector_Create(&clients);
   rtVector_Create(&listeners);
+  rtVector_Create(&routes);
 
   FILE* pid_file = fopen("/tmp/rtrouted.pid", "w");
   if (!pid_file)
@@ -545,22 +544,16 @@ int main(int argc, char* argv[])
     exit(12);
   }
 
-  for (i = 0; i < RTMSG_MAX_ROUTES; ++i)
-  {
-    routes[i].subscription = NULL;
-    routes[i].message_handler = NULL;
-    routes[i].expression[0] = '\0';
-    memset(routes[i].expression, 0, RTMSG_MAX_EXPRESSION_LEN);
-    routes[i].in_use = 0;
-  }
-
-
   rtLogSetLogHandler(NULL);
 
-  routes[0].subscription = NULL;
-  routes[0].in_use = 1;
-  strcpy(routes[0].expression, "_RTROUTED.>");
-  routes[0].message_handler = rtRouted_OnMessage;
+  // add internal route
+  {
+    route = (rtRouteEntry *) malloc(sizeof(rtRouteEntry));
+    route->subscription = NULL;
+    strcpy(route->expression, "_RTROUTED.>");
+    route->message_handler = rtRouted_OnMessage;
+    rtVector_PushBack(routes, route);
+  }
 
   while (1)
   {
@@ -599,10 +592,11 @@ int main(int argc, char* argv[])
         break;
       case 'r':
       {
-        routes[1].subscription = NULL;
-        routes[1].in_use = 1;
-        strcpy(routes[1].expression, ">");
-        routes[1].message_handler = &rtRouted_PrintMessage;
+        route = (rtRouteEntry *) malloc(sizeof(rtRouteEntry));
+        route->subscription = NULL;
+        route->message_handler = &rtRouted_PrintMessage;
+        strcpy(route->expression, ">");
+        rtVector_PushBack(routes, route);
       }
       case '?':
         break;
