@@ -1,4 +1,4 @@
-all: librtMessaging.so rtrouted sample_send sample_recv rtsub sample_provider \
+all: librtMessaging.so rtrouted sample_send sample_recv rtsub \
   sample_req sample_res
 
 CC=gcc
@@ -13,7 +13,6 @@ RTMSG_SRCS=\
   rtMessageHeader.c \
   rtDebug.c \
   rtMessage.c \
-  rtDataModel.c \
   rtVector.c
 
 RTROUTER_SRCS=rtrouted.c
@@ -57,7 +56,7 @@ clean:
 	rm -rf obj *.o librtMessaging.so
 	rm -f rtrouted
 	rm -f rtsub
-	rm -f sample_send sample_recv sample_provider sample_req sample_res
+	rm -f sample_send sample_recv sample_req sample_res
 
 librtMessaging.so: $(RTMSG_OBJS)
 	$(CC_PRETTY) $(RTMSG_OBJS) $(LDFLAGS) -LcJSON -lcjson -shared -o $@
@@ -70,9 +69,6 @@ sample_send: librtMessaging.so sample_send.c
 
 sample_recv: librtMessaging.so sample_recv.c
 	$(CC_PRETTY) $(CFLAGS) sample_recv.c -L. -lrtMessaging -o sample_recv -LcJSON -lcjson
-
-sample_provider: librtMessaging.so sample_provider.c
-	$(CC_PRETTY) $(CFLAGS) sample_provider.c -L. -lrtMessaging -o sample_provider -LcJSON -lcjson
 
 sample_req: librtMessaging.so sample_req.c
 	$(CC_PRETTY) $(CFLAGS) sample_req.c -L. -lrtMessaging -o sample_req -LcJSON -lcjson
