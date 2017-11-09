@@ -1,4 +1,4 @@
-# Install script for directory: /home/revathy/Revathy/rtmessage
+# Install script for directory: /home/revathy/Revathy/github/9Nov/rtMessage
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -40,5 +40,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/revathy/Revathy/rtmessage/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/revathy/Revathy/github/9Nov/rtMessage/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

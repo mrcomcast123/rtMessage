@@ -37,7 +37,7 @@ else()
 endif (BUILD_FOR_DESKTOP)
 
 set(RTMESSAGE_SOURCE_FILES rtConnection.c rtLog.c rtError.c rtMessageHeader.c 
-			   rtEncoder.c rtMessage.c rtSocket.c)
+			   rtEncoder.c rtMessage.c rtSocket.c rtVector.c)
 
 set(RTMESSAGE_APP_FILES sample_send.c sample_recv.c)
 
@@ -91,6 +91,16 @@ if (BUILD_RTMESSAGE_SAMPLE_APP)
     set_target_properties(rtmessage_sample_app_recv PROPERTIES OUTPUT_NAME "sample_recv")
     target_link_libraries(rtmessage_sample_app_recv ${LIBRARY_LINKER_OPTIONS} rtMessaging_lib)
     target_compile_definitions(rtmessage_sample_app_recv PRIVATE RT_PLATFORM_LINUX)
+    #request
+    add_executable(rtmessage_sample_app_req sample_req.c)
+    set_target_properties(rtmessage_sample_app_req PROPERTIES OUTPUT_NAME "sample_req")
+    target_link_libraries(rtmessage_sample_app_req ${LIBRARY_LINKER_OPTIONS} rtMessaging_lib)
+    target_compile_definitions(rtmessage_sample_app_req PRIVATE RT_PLATFORM_LINUX)
+    #response
+    add_executable(rtmessage_sample_app_res sample_res.c)
+    set_target_properties(rtmessage_sample_app_res PROPERTIES OUTPUT_NAME "sample_res")
+    target_link_libraries(rtmessage_sample_app_res ${LIBRARY_LINKER_OPTIONS} rtMessaging_lib)
+    target_compile_definitions(rtmessage_sample_app_res PRIVATE RT_PLATFORM_LINUX)
 endif (BUILD_RTMESSAGE_SAMPLE_APP)
 
 install (TARGETS LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
