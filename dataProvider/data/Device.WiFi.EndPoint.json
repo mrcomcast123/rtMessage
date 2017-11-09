@@ -1,0 +1,8 @@
+{
+  "name": "Device.WiFi.EndPoint",
+  "provider" : "wifi",
+  "properties":
+    [
+      {"name": "Status", "type": "string", "optional": false, "writable": false, "version": "2.0"}
+    ]
+}
