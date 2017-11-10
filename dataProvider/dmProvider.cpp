@@ -1,3 +1,18 @@
+/* Copyright [2017] [Comcast, Corp.]
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include <iostream>
 #include <dirent.h>
 #include <cstddef>
@@ -8,9 +23,18 @@
 #include <fstream>
 #include <iomanip>
 
+#include "rtConnection.h"
+
+extern "C"
+{
+#include "rtMessage.h"
+#include "rtError.h"
+}
+
 #include "dmProvider.h"
 
 void splitQuery(char const* query, char* model, char* parameter);
+void doGet(std::string const& providerName, std::vector<dmPropertyInfo> &propertyName);
 
 void splitQuery(char const* query, char* model, char* parameter)
 {
@@ -23,7 +47,7 @@ void splitQuery(char const* query, char* model, char* parameter)
   str.clear();
 }
 
-void dmPropertyInfo::setName(std::string name)
+void dmPropertyInfo::setName(std::string const& name)
 {
   m_propname = name;
 }
@@ -33,7 +57,7 @@ std::string const& dmPropertyInfo::name() const
   return m_propname;
 }
 
-void dmProviderInfo::setName(std::string name)
+void dmProviderInfo::setName(std::string const& name)
 {
   m_provider = name;
 }
@@ -43,7 +67,7 @@ std::string const& dmProviderInfo::name() const
   return m_provider;
 }
 
-void dmProviderInfo::setProperties(std::vector<dmPropertyInfo> propInfo)
+void dmProviderInfo::setProperties(std::vector<dmPropertyInfo> const& propInfo)
 {
   m_propertyInfo = propInfo;
 }
@@ -53,12 +77,17 @@ std::vector<dmPropertyInfo> const& dmProviderInfo::properties() const
   return m_propertyInfo;
 }
 
-dmProviderDatabase::dmProviderDatabase(std::string dir):m_directory(dir)
+dmProviderDatabase::dmProviderDatabase(std::string const& dir):m_directory(dir)
 {
   loadFromDir(dir);
 }
 
-void dmProviderDatabase::loadFromDir(std::string dir)
+dmProviderDatabase::~dmProviderDatabase()
+{
+  providerDetails.clear();
+}
+
+void dmProviderDatabase::loadFromDir(std::string const& dir)
 {
   DIR* directory;
   struct dirent *ent;
@@ -124,18 +153,10 @@ void dmProviderDatabase::loadFile(char const* dir, char const* fname)
         dI->setName(cJSON_GetObjectItem(subitem, "name")->valuestring);
         propInfo.push_back(*dI);
         dP->setProperties(propInfo);
+        delete (dI);
       }       
       providerDetails.insert(std::make_pair(root, *dP));
-      for( auto map_iter = providerDetails.cbegin() ; map_iter != providerDetails.cend() ; ++map_iter )
-      {         
-        std::cout  << "\n\tRoot" << "\t" << "Provider" << "\t" << "Parameter" << std::endl;
-        for( auto vec_iter = map_iter->second.properties().cbegin(); vec_iter != map_iter->second.properties().cend() ; ++vec_iter )
-        {
-          std::cout << '|' << std::setw(10) << map_iter->first << '|' << std::setw(10) << map_iter->second.name() << " ";
-          std::cout << '|' << std::setw(10) << vec_iter->name() << "  " << std::endl ;
-        }
-      }
-      providerDetails.clear();          
+      delete (dP);
     }
     delete [] buffer;
   }
@@ -150,17 +171,93 @@ void dmProviderDatabase::loadFile(char const* dir, char const* fname)
 
 std::vector<dmPropertyInfo> dmProviderDatabase::get(char const* query)
 {
-  std::string dataPath("./data/");
-  loadFromDir(dataPath);
+  char* model = new char[100];
+  char* parameter = new char[50];
+  char* provider = new char[50];
+  int found = 0;
+  std::vector<dmPropertyInfo> getInfo;
+  splitQuery(query, model, parameter);
+
+  for (auto map_iter = providerDetails.cbegin() ; map_iter != providerDetails.cend() ; map_iter++)
+  {
+    for (auto vec_iter = map_iter->second.properties().cbegin(); vec_iter != map_iter->second.properties().cend() ; vec_iter++)
+    {
+      dmPropertyInfo* dI = new dmPropertyInfo();
+      if (strcmp(map_iter->first.c_str(), model) == 0)
+      {
+        if (strcmp(parameter, "") == 0)
+        {
+          printf("\nWild Card will be supported in future\n");
+          exit(0);
+        }
+        else if (strcmp(vec_iter->name().c_str(), parameter) == 0)
+        {
+          dI->setName(parameter);
+          strncpy(provider, map_iter->second.name().c_str(), sizeof(map_iter->second.name().c_str()));
+          getInfo.push_back(*dI);
+          found = 1;
+        }
+      }
+      delete(dI);
+    }
+  }
+
+  if (!found)
+    printf("\n Paramter not found");
+  else
+  {
+    printf("\nPROVIDER : %s PARAMETER : %s\n", provider, parameter);
+    std::string dataProvider(provider);
+    doGet(dataProvider, getInfo);
+  }
+
+  delete [] provider;
+  delete [] parameter;
+  delete [] model;
+  return getInfo;
 }
 
-void doGet(std::string const& providerName, std::vector<dmPropertyInfo> const& propertyName)
+void doGet(std::string const& providerName, std::vector<dmPropertyInfo> &propertyName)
 {
+  rtConnection con;
+  rtConnection_Create(&con, "DMCLIENT", "tcp://127.0.0.1:10001");
 
+  dmPropertyInfo dI = propertyName.back();
+  propertyName.pop_back();
+
+  char* parameter = new char[strlen(dI.name().c_str())+1];
+
+  strncpy(parameter, dI.name().c_str(), strlen(dI.name().c_str())+1);
+  parameter[strlen(parameter)+1] = '\0';
+
+  /* TODO send request to provider using rtmessage" */
+  rtMessage res;
+  rtMessage req;
+  rtMessage_Create(&req);
+  rtMessage_SetString(req, "propertyName", parameter);
+
+  rtError err = rtConnection_SendRequest(con, req, providerName.c_str(), &res, 2000);
+  printf("SendRequest:%s", rtStrError(err));
+
+  if (err == RT_OK)
+  {
+    char* p = NULL;
+    uint32_t len = 0;
+
+    rtMessage_ToString(res, &p, &len);
+    printf("\tres:%.*s\n", len, p);
+    free(p);
+  }
+
+  rtMessage_Destroy(req);
+  rtMessage_Destroy(res);
+
+  rtConnection_Destroy(con);
+
+  delete [] parameter;
 }
 
 int main()
 {
 
 }
-

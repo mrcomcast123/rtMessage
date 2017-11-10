@@ -40,7 +40,7 @@ endif (BUILD_FOR_DESKTOP)
 
 set(DM_SOURCE_FILES dmValue.cpp dmProvider.cpp)
 
-set(DM_APP_FILES sample_provider.cpp)
+set(DM_APP_FILES dm_provider.cpp)
 
 add_definitions(-DRT_PLATFORM_LINUX)
 
@@ -72,7 +72,7 @@ if (BUILD_DM_SAMPLE_APP)
     message ("Building dm sample app")
     set(CMAKE_CFLAGS " ${CMAKE_C_FLAGS}")
     link_directories(${DM_LINK_DIRECTORIES})
-    add_executable(sample_app_dmcli sample_provider.cpp)
+    add_executable(sample_app_dmcli ${DM_APP_FILES})
     set_target_properties(sample_app_dmcli PROPERTIES OUTPUT_NAME "dm_provider")
     target_link_libraries(sample_app_dmcli ${LIBRARY_LINKER_OPTIONS} dmProvider_lib)
     target_compile_definitions(sample_app_dmcli PRIVATE RT_PLATFORM_LINUX)
