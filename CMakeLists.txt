@@ -5,6 +5,7 @@ include(ExternalProject)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+set(CMAKE_CXX_STANDARD 11)
 
 option(BUILD_FOR_DESKTOP "BUILD_FOR_DESKTOP" OFF)
 option(BUILD_RTMESSAGE_LIB "BUILD_RTMESSAGE_LIB" ON)
@@ -12,6 +13,7 @@ option(ENABLE_RTMESSAGE_DEBUG "ENABLE_RTMESSAGE_DEBUG" OFF)
 option(ENABLE_RTMESSAGE_PROFILE "ENABLE_RTMESSAGE_PROFILE" OFF)
 option(BUILD_RTMESSAGE_SAMPLE_APP "BUILD_RTMESSAGE_SAMPLE_APP" OFF)
 option(BUILD_RTMESSAGE_ROUTED "BUILD_RTMESSAGE_ROUTED" ON)
+option(BUILD_DATAPROVIDER_LIB "BUILD_DATAPROVIDER_LIB" OFF)
 
 set(CMAKE_C_FLAGS "")
 
@@ -74,10 +76,28 @@ endif (ENABLE_RTMESSAGE_PROFILE)
 
 if (BUILD_RTMESSAGE_LIB)
     message("Building rtMessage lib")
-    add_library(rtMessage_lib SHARED ${RTMESSAGE_SOURCE_FILES})
-    set_target_properties(rtMessage_lib PROPERTIES OUTPUT_NAME "rtMessage")
-    target_link_libraries(rtMessage_lib ${LIBRARY_LINKER_OPTIONS} -pthread -lcjson)
+    add_library(rtMessage SHARED ${RTMESSAGE_SOURCE_FILES})
+    set_target_properties(rtMessage PROPERTIES OUTPUT_NAME "rtMessage")
+    target_link_libraries(rtMessage ${LIBRARY_LINKER_OPTIONS} -pthread -lcjson)
 endif (BUILD_RTMESSAGE_LIB)
+
+if (BUILD_DATAPROVIDER_LIB)
+  add_library(
+    dataProvider
+    SHARED
+    dataProvider/dmProvider.cpp
+    dataProvider/dmValue.cpp
+    dataProvider/dm_provider.cpp)
+
+  add_dependencies(
+    dataProvider
+    rtMessage)
+
+  target_link_libraries(
+    dataProvider
+    rtMessage
+    cjson)
+endif (BUILD_DATAPROVIDER_LIB)
 
 if (BUILD_RTMESSAGE_ROUTED)
     message ("Building rtrouted")
@@ -87,7 +107,7 @@ if (BUILD_RTMESSAGE_ROUTED)
       add_dependencies(rtrouted_app cJSON)
     endif(foo)
     set_target_properties(rtrouted_app PROPERTIES OUTPUT_NAME "rtrouted")
-    target_link_libraries(rtrouted_app ${LIBRARY_LINKER_OPTIONS} rtMessage_lib)
+    target_link_libraries(rtrouted_app ${LIBRARY_LINKER_OPTIONS} rtMessage)
     target_compile_definitions(rtrouted_app PRIVATE RT_PLATFORM_LINUX)
 endif (BUILD_RTMESSAGE_ROUTED)
 
@@ -101,7 +121,7 @@ if (BUILD_RTMESSAGE_SAMPLE_APP)
       add_dependencies(rtmessage_sample_app_send cJSON)
     endif (BUILD_FOR_DESKTOP)
     set_target_properties(rtmessage_sample_app_send PROPERTIES OUTPUT_NAME "sample_send")
-    target_link_libraries(rtmessage_sample_app_send ${LIBRARY_LINKER_OPTIONS} rtMessage_lib)
+    target_link_libraries(rtmessage_sample_app_send ${LIBRARY_LINKER_OPTIONS} rtMessage)
     target_compile_definitions(rtmessage_sample_app_send PRIVATE RT_PLATFORM_LINUX)
     #recv
     add_executable(rtmessage_sample_app_recv sample_recv.c)
@@ -109,7 +129,7 @@ if (BUILD_RTMESSAGE_SAMPLE_APP)
       add_dependencies(rtmessage_sample_app_recv cJSON)
     endif (BUILD_FOR_DESKTOP)
     set_target_properties(rtmessage_sample_app_recv PROPERTIES OUTPUT_NAME "sample_recv")
-    target_link_libraries(rtmessage_sample_app_recv ${LIBRARY_LINKER_OPTIONS} rtMessage_lib)
+    target_link_libraries(rtmessage_sample_app_recv ${LIBRARY_LINKER_OPTIONS} rtMessage)
     target_compile_definitions(rtmessage_sample_app_recv PRIVATE RT_PLATFORM_LINUX)
     #request
     add_executable(rtmessage_sample_app_req sample_req.c)
@@ -117,7 +137,7 @@ if (BUILD_RTMESSAGE_SAMPLE_APP)
       add_dependencies(rtmessage_sample_app_req cJSON)
     endif (BUILD_FOR_DESKTOP)
     set_target_properties(rtmessage_sample_app_req PROPERTIES OUTPUT_NAME "sample_req")
-    target_link_libraries(rtmessage_sample_app_req ${LIBRARY_LINKER_OPTIONS} rtMessage_lib)
+    target_link_libraries(rtmessage_sample_app_req ${LIBRARY_LINKER_OPTIONS} rtMessage)
     target_compile_definitions(rtmessage_sample_app_req PRIVATE RT_PLATFORM_LINUX)
     #response
     add_executable(rtmessage_sample_app_res sample_res.c)
@@ -125,7 +145,7 @@ if (BUILD_RTMESSAGE_SAMPLE_APP)
       add_dependencies(rtmessage_sample_app_res cJSON)
     endif (BUILD_FOR_DESKTOP)
     set_target_properties(rtmessage_sample_app_res PROPERTIES OUTPUT_NAME "sample_res")
-    target_link_libraries(rtmessage_sample_app_res ${LIBRARY_LINKER_OPTIONS} rtMessage_lib)
+    target_link_libraries(rtmessage_sample_app_res ${LIBRARY_LINKER_OPTIONS} rtMessage)
     target_compile_definitions(rtmessage_sample_app_res PRIVATE RT_PLATFORM_LINUX)
 endif (BUILD_RTMESSAGE_SAMPLE_APP)
 

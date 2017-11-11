@@ -107,30 +107,3 @@ dmValue::toString() const
   }
   return buff.str();
 }
-
-
-// TEST CODE
-/*#include <iostream>
-int main()
-{
-  dmValue v1(6);
-  std::cout << v1.toString() << std::endl;
-
-  v1 = 5;
-  std::cout << v1.toString() << std::endl;
-  std::cout << v1.type() << std::endl;
-
-  v1 = 1.2f;
-  std::cout << v1.toString() << std::endl;
-  std::cout << v1.type() << std::endl;
-
-  v1 = "hello world";
-  std::cout << v1.toString() << std::endl;
-  std::cout << v1.type() << std::endl;
-
-  dmValue v2 = v1;
-  std::cout << v1.toString() << std::endl;
-  std::cout << v1.type() << std::endl;
-
-  return 0;
-}*/

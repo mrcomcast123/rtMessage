@@ -1,4 +1,4 @@
-librtMessage.so
+*.so
 obj/
 build/
 rtrouted

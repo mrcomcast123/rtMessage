@@ -256,8 +256,3 @@ void doGet(std::string const& providerName, std::vector<dmPropertyInfo> &propert
 
   delete [] parameter;
 }
-
-int main()
-{
-
-}
