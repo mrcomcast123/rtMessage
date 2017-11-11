@@ -30,11 +30,20 @@ class dmProvider;
 class dmProviderHost
 {
 public:
-  dmProviderHost();
-  void start();
-  void stop();
-  void run();
-  void registerProvider(std::string const& name, std::unique_ptr<dmProvider> provider);
+  dmProviderHost() { }
+  virtual ~dmProviderHost() { }
+  virtual void start() = 0;
+  virtual void stop() = 0;
+  virtual void run() = 0;
+
+public:
+  static dmProviderHost* create();
+
+public:
+  bool registerProvider(std::string const& name, std::unique_ptr<dmProvider> provider);
+
+protected:
+  virtual bool providerRegistered(std::string const& name) = 0;
 
   void doGet(std::string const& providerName, std::vector<dmPropertyInfo> const& params,
     dmQueryResult& result);
@@ -44,8 +53,6 @@ public:
 
 private:
   std::map< std::string, std::unique_ptr<dmProvider> > m_providers;
-  std::unique_ptr<std::thread> m_thread;
-  std::mutex m_mutex;
 };
 
 #endif

@@ -60,7 +60,7 @@ endif (ENABLE_RTMESSAGE_PROFILE)
 if (BUILD_RTMESSAGE_LIB)
     message("Building rtMessage lib")
     add_library(
-      rtMessage
+      rtMessage 
       SHARED
       rtConnection.c
       rtLog.c
@@ -109,7 +109,7 @@ if (BUILD_DMCLI)
   if (BUILD_FOR_DESKTOP)
     add_dependencies(dmcli cJSON rtMessage dataProvider)
   endif (BUILD_FOR_DESKTOP)
-  target_link_libraries(dmcli rtMessage dataProvider cjson)
+  target_link_libraries(dmcli dataProvider rtMessage)
   add_definitions("-DDEFAULT_DATAMODELDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/dataProvider/data\"")
 endif (BUILD_DMCLI)
 
