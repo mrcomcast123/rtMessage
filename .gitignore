@@ -1,5 +1,6 @@
-librtMessaging.so
+librtMessage.so
 obj/
+build/
 rtrouted
 sample_recv
 sample_send
