@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "dmProviderDatabase.h"
 
 #include <iostream>
 #include <dirent.h>
@@ -23,15 +24,14 @@
 #include <fstream>
 #include <iomanip>
 
-#include "rtConnection.h"
 
 extern "C"
 {
+#include "rtConnection.h"
 #include "rtMessage.h"
 #include "rtError.h"
+#include <cJSON.h>
 }
-
-#include "dmProvider.h"
 
 void splitQuery(char const* query, char* model, char* parameter);
 void doGet(std::string const& providerName, std::vector<dmPropertyInfo> &propertyName);
@@ -45,36 +45,6 @@ void splitQuery(char const* query, char* model, char* parameter)
   parameter[0]= '\0'; 
   std::strcat(parameter, str.substr(position+1).c_str());
   str.clear();
-}
-
-void dmPropertyInfo::setName(std::string const& name)
-{
-  m_propname = name;
-}
-
-std::string const& dmPropertyInfo::name() const
-{
-  return m_propname;
-}
-
-void dmProviderInfo::setName(std::string const& name)
-{
-  m_provider = name;
-}
-
-std::string const& dmProviderInfo::name() const
-{
-  return m_provider;
-}
-
-void dmProviderInfo::setProperties(std::vector<dmPropertyInfo> const& propInfo)
-{
-  m_propertyInfo = propInfo;
-}
-
-std::vector<dmPropertyInfo> const& dmProviderInfo::properties() const
-{
-  return m_propertyInfo;
 }
 
 dmProviderDatabase::dmProviderDatabase(std::string const& dir):m_directory(dir)
@@ -141,22 +111,23 @@ void dmProviderDatabase::loadFile(char const* dir, char const* fname)
     }
     else
     {
-      dmProviderInfo* dP = new dmProviderInfo(); 
-      std::string provider = cJSON_GetObjectItem(json, "provider")->valuestring;
-      dP->setName(provider);
-      std::vector<dmPropertyInfo> propInfo;
-      cJSON *properties = cJSON_GetObjectItem(json, "properties"); 
-      for (int i = 0 ; i < cJSON_GetArraySize(properties); i++)
+      dmProviderInfo providerInfo;
+      providerInfo.setProviderName(cJSON_GetObjectItem(json, "provider")->valuestring);
+      providerInfo.setObjectName(cJSON_GetObjectItem(json, "name")->valuestring);
+
+      cJSON *props = cJSON_GetObjectItem(json, "properties"); 
+      for (int i = 0, n = cJSON_GetArraySize(props); i < n; ++i)
       {
-        dmPropertyInfo* dI = new dmPropertyInfo();
-        cJSON *subitem = cJSON_GetArrayItem(properties, i);
-        dI->setName(cJSON_GetObjectItem(subitem, "name")->valuestring);
-        propInfo.push_back(*dI);
-        dP->setProperties(propInfo);
-        delete (dI);
-      }       
-      providerDetails.insert(std::make_pair(root, *dP));
-      delete (dP);
+        cJSON* item = cJSON_GetArrayItem(props, i);
+
+        dmPropertyInfo propertyInfo;
+        propertyInfo.setName(cJSON_GetObjectItem(item, "name")->valuestring);
+        propertyInfo.setIsOptional(cJSON_IsTrue(cJSON_GetObjectItem(item, "optional")));
+        propertyInfo.setIsWritable(cJSON_IsTrue(cJSON_GetObjectItem(item, "writable")));
+        propertyInfo.setType(dmValueType_fromString(cJSON_GetObjectItem(item, "type")->valuestring));
+        providerInfo.addProperty(propertyInfo);
+      }
+      providerDetails.insert(std::make_pair(root, providerInfo));
     }
     delete [] buffer;
   }
@@ -193,7 +164,8 @@ std::vector<dmPropertyInfo> dmProviderDatabase::get(char const* query)
         else if (strcmp(vec_iter->name().c_str(), parameter) == 0)
         {
           dI->setName(parameter);
-          strncpy(provider, map_iter->second.name().c_str(), sizeof(map_iter->second.name().c_str()));
+          // XXX: BUG sizeof() is returning size of pointer not length of string
+          strncpy(provider, map_iter->second.providerName().c_str(), sizeof(map_iter->second.providerName().c_str()));
           getInfo.push_back(*dI);
           found = 1;
         }

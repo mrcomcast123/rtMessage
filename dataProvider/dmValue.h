@@ -32,8 +32,12 @@ enum dmValueType
   dmValueType_UInt64,
   dmValueType_String,
   dmValueType_Single,
-  dmValueType_Double
+  dmValueType_Double,
+  dmValueType_Unknown
 };
+
+dmValueType dmValueType_fromString(char const* s);
+char const* dmValueType_toString(dmValueType t);
 
 class dmValue
 {

@@ -20,7 +20,7 @@
 #include <cstring>
 #include <memory>
 
-#include "dmProvider.h"
+#include "dmProviderDatabase.h"
 
 void 
 Usage()

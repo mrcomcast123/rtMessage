@@ -12,9 +12,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include "dmValue.h"
+
+#include <algorithm>
 #include <sstream>
+#include <vector>
+
+namespace
+{
+  struct dmValueTypeName
+  {
+    std::string asstring;
+    dmValueType asenum;
+  };
+
+  std::vector<dmValueTypeName> dmValueNames =
+  {
+    { "int8", dmValueType_Int8 },
+    { "int16", dmValueType_Int16 },
+    { "int32", dmValueType_Int32 },
+    { "int64", dmValueType_Int64 },
+    { "uint8", dmValueType_UInt8 },
+    { "uint16", dmValueType_UInt16 },
+    { "uint32", dmValueType_UInt32 },
+    { "uint64", dmValueType_UInt64 },
+    { "single", dmValueType_Single },
+    { "string", dmValueType_String },
+    { "double", dmValueType_Double },
+  };
+}
 
 dmValue::dmValue(std::string const& s)
   : m_type(dmValueType_String)
@@ -39,7 +65,6 @@ dmValue::dmValue(int32_t n)
 dmValue::dmValue(int64_t n)
   : m_type(dmValueType_Int64)
   , m_value(n) { }
-
 
 dmValue::dmValue(uint8_t n)
   : m_type(dmValueType_UInt8)
@@ -71,6 +96,9 @@ dmValue::toString() const
   std::stringstream buff;
   switch (m_type)
   {
+    case dmValueType_Unknown:
+      buff << "(null)";
+      break;
     case dmValueType_String:
       buff << m_string;
       break;
@@ -106,4 +134,28 @@ dmValue::toString() const
       break;
   }
   return buff.str();
+}
+
+dmValueType
+dmValueType_fromString(char const* s)
+{
+  auto itr = std::find_if(dmValueNames.begin(), dmValueNames.end(),
+    [s](dmValueTypeName const& entry) { return entry.asstring.compare(s) == 0; });
+
+  if (itr == dmValueNames.end())
+    return dmValueType_Unknown;
+
+  return itr->asenum;
+}
+
+char const*
+dmValueType_toString(dmValueType t)
+{
+  auto itr = std::find_if(dmValueNames.begin(), dmValueNames.end(),
+    [t](dmValueTypeName const& entry) { return entry.asenum == t; });
+
+  if (itr == dmValueNames.end())
+    return "unknown";
+
+  return itr->asstring.c_str();
 }
