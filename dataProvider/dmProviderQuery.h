@@ -12,26 +12,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "dmProviderInfo.h"
+#ifndef __DM_PROVIDER_QUERY_H__
+#define __DM_PROVIDER_QUERY_H__
 
-dmProviderInfo::dmProviderInfo()
-  : m_objectName()
-  , m_providerName()
-  , m_props()
-{
-}
+#include "dmValue.h"
+#include "dmProviderOperation.h"
+#include "dmProviderQueryResult.h"
 
-void dmProviderInfo::setProviderName(std::string const& name)
+class dmProviderQuery
 {
-  m_providerName = name;
-}
+public:
+  virtual ~dmProviderQuery() { }
+  virtual bool exec() = 0;
+  virtual void reset() = 0;
+  virtual void setQueryString(dmProviderOperation op, char const* s) = 0;
+  virtual dmProviderQueryResult const& results() = 0;
+};
 
-void dmProviderInfo::setObjectName(std::string const& name)
-{
-  m_objectName = name;
-}
-
-void dmProviderInfo::addProperty(dmPropertyInfo const& propInfo)
-{
-  m_props.push_back(propInfo);
-}
+#endif

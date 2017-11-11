@@ -16,6 +16,8 @@
 #define __DM_PROVIDER_DATABASE_H__
 
 #include "dmProviderInfo.h"
+#include "dmProviderQuery.h"
+#include "dmProviderOperation.h"
 #include "dmPropertyInfo.h"
 
 #include <map>
@@ -26,18 +28,18 @@ class dmProviderDatabase
 {
 public:
   dmProviderDatabase(std::string const& dir);
-  ~dmProviderDatabase();
-
-public:
   std::vector<dmPropertyInfo> get(char const* query);
+
+  dmProviderQuery* createQuery();
+  dmProviderQuery* createQuery(dmProviderOperation op, char const* s);
 
 private:
   void loadFromDir(std::string const& dir);
   void loadFile(char const* dir, char const* fname);
 
 private:
-  std::string m_directory;
-  std::map<std::string, dmProviderInfo> providerDetails;
+  std::string m_dataModelDir;
+  std::map<std::string, dmProviderInfo> m_providerInfo;
 };
 
 #endif

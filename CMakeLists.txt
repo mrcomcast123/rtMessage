@@ -17,6 +17,7 @@ option(ENABLE_RTMESSAGE_PROFILE "ENABLE_RTMESSAGE_PROFILE" OFF)
 option(BUILD_RTMESSAGE_SAMPLE_APP "BUILD_RTMESSAGE_SAMPLE_APP" OFF)
 option(BUILD_RTMESSAGE_ROUTED "BUILD_RTMESSAGE_ROUTED" ON)
 option(BUILD_DATAPROVIDER_LIB "BUILD_DATAPROVIDER_LIB" OFF)
+option(BUILD_DMCLI "BUILD_DMCLI" ON)
 
 set(CMAKE_C_FLAGS "")
 
@@ -80,8 +81,7 @@ if (BUILD_DATAPROVIDER_LIB)
     dataProvider/dmProviderDatabase.cpp
     dataProvider/dmPropertyInfo.cpp
     dataProvider/dmProviderInfo.cpp
-    dataProvider/dmValue.cpp
-    dataProvider/dm_provider.cpp)
+    dataProvider/dmValue.cpp)
   add_dependencies(
     dataProvider
     rtMessage)
@@ -101,6 +101,15 @@ if (BUILD_RTMESSAGE_ROUTED)
     target_link_libraries(rtrouted ${LIBRARY_LINKER_OPTIONS} rtMessage)
     target_compile_definitions(rtrouted PRIVATE RT_PLATFORM_LINUX)
 endif (BUILD_RTMESSAGE_ROUTED)
+
+if (BUILD_DMCLI)
+  add_executable(dmcli dataProvider/dmcli.cpp)
+  if (BUILD_FOR_DESKTOP)
+    add_dependencies(dmcli cJSON rtMessage dataProvider)
+  endif (BUILD_FOR_DESKTOP)
+  target_link_libraries(dmcli rtMessage dataProvider cjson)
+  add_definitions("-DDEFAULT_DATAMODELDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/dataProvider/data\"")
+endif (BUILD_DMCLI)
 
 if (BUILD_RTMESSAGE_SAMPLE_APP)
     # sample_send

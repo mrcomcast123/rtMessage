@@ -14,6 +14,14 @@
  */
 #include "dmPropertyInfo.h"
 
+dmPropertyInfo::dmPropertyInfo()
+  : m_name()
+  , m_type(dmValueType_Unknown)
+  , m_optional(false)
+  , m_writable(false)
+{
+}
+
 void dmPropertyInfo::setName(std::string const& name)
 {
   m_name = name;

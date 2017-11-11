@@ -12,26 +12,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "dmProviderInfo.h"
+#ifndef __DM_PROVIDER_OPERATION_H__
+#define __DM_PROVIDER_OPERATION_H__
 
-dmProviderInfo::dmProviderInfo()
-  : m_objectName()
-  , m_providerName()
-  , m_props()
+enum dmProviderOperation
 {
-}
+  dmProviderOperation_Get,
+  dmProviderOperation_Set
+};
 
-void dmProviderInfo::setProviderName(std::string const& name)
-{
-  m_providerName = name;
-}
-
-void dmProviderInfo::setObjectName(std::string const& name)
-{
-  m_objectName = name;
-}
-
-void dmProviderInfo::addProperty(dmPropertyInfo const& propInfo)
-{
-  m_props.push_back(propInfo);
-}
+#endif

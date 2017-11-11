@@ -12,26 +12,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "dmProviderInfo.h"
+#ifndef __DM_PROVIDER_QUERY_RESULT_H__
+#define __DM_PROVIDER_QUERY_RESULT_H__
 
-dmProviderInfo::dmProviderInfo()
-  : m_objectName()
-  , m_providerName()
-  , m_props()
+class dmProviderQueryResult
 {
-}
+public:
+  dmProviderQueryResult() { }
 
-void dmProviderInfo::setProviderName(std::string const& name)
-{
-  m_providerName = name;
-}
+  void clear();
 
-void dmProviderInfo::setObjectName(std::string const& name)
-{
-  m_objectName = name;
-}
+  inline int status()
+    { return m_status; }
 
-void dmProviderInfo::addProperty(dmPropertyInfo const& propInfo)
-{
-  m_props.push_back(propInfo);
-}
+  inline void addValue(dmNamedValue const& val)
+    { m_values.push_back(val); }
+
+  inline std::vector<dmNamedValue> values() const
+    { return m_values; }
+
+private:
+  int m_status;
+  std::vector<dmNamedValue> m_values;
+};
+
+#endif

@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "dmProviderDatabase.h"
+#include "dmProviderQuery.h"
 
 #include <iostream>
 #include <dirent.h>
@@ -33,6 +34,31 @@ extern "C"
 #include <cJSON.h>
 }
 
+// TODO: Implement me
+class dmProviderQueryImpl : public dmProviderQuery
+{
+public:
+  virtual bool exec()
+  {
+    return false;
+  }
+
+  virtual void reset()
+  {
+  }
+
+  virtual void setQueryString(dmProviderOperation op, char const* s)
+  {
+  }
+
+  virtual dmProviderQueryResult const& results()
+  {
+    return m_results;
+  }
+private:
+  dmProviderQueryResult m_results;
+};
+
 void splitQuery(char const* query, char* model, char* parameter);
 void doGet(std::string const& providerName, std::vector<dmPropertyInfo> &propertyName);
 
@@ -47,14 +73,10 @@ void splitQuery(char const* query, char* model, char* parameter)
   str.clear();
 }
 
-dmProviderDatabase::dmProviderDatabase(std::string const& dir):m_directory(dir)
+dmProviderDatabase::dmProviderDatabase(std::string const& dir)
+  : m_dataModelDir(dir)
 {
   loadFromDir(dir);
-}
-
-dmProviderDatabase::~dmProviderDatabase()
-{
-  providerDetails.clear();
 }
 
 void dmProviderDatabase::loadFromDir(std::string const& dir)
@@ -62,7 +84,7 @@ void dmProviderDatabase::loadFromDir(std::string const& dir)
   DIR* directory;
   struct dirent *ent;
 
-  if ((directory = opendir(m_directory.c_str())) != NULL) 
+  if ((directory = opendir(m_dataModelDir.c_str())) != NULL) 
   {
      /* print all the files and directories within directory */
     while ((ent = readdir(directory)) != NULL) 
@@ -127,7 +149,7 @@ void dmProviderDatabase::loadFile(char const* dir, char const* fname)
         propertyInfo.setType(dmValueType_fromString(cJSON_GetObjectItem(item, "type")->valuestring));
         providerInfo.addProperty(propertyInfo);
       }
-      providerDetails.insert(std::make_pair(root, providerInfo));
+      m_providerInfo.insert(std::make_pair(root, providerInfo));
     }
     delete [] buffer;
   }
@@ -149,7 +171,7 @@ std::vector<dmPropertyInfo> dmProviderDatabase::get(char const* query)
   std::vector<dmPropertyInfo> getInfo;
   splitQuery(query, model, parameter);
 
-  for (auto map_iter = providerDetails.cbegin() ; map_iter != providerDetails.cend() ; map_iter++)
+  for (auto map_iter = m_providerInfo.cbegin() ; map_iter != m_providerInfo.cend() ; map_iter++)
   {
     for (auto vec_iter = map_iter->second.properties().cbegin(); vec_iter != map_iter->second.properties().cend() ; vec_iter++)
     {
@@ -227,4 +249,27 @@ void doGet(std::string const& providerName, std::vector<dmPropertyInfo> &propert
   rtConnection_Destroy(con);
 
   delete [] parameter;
+}
+
+dmProviderQuery*
+dmProviderDatabase::createQuery()
+{
+  return new dmProviderQueryImpl();
+}
+
+dmProviderQuery* 
+dmProviderDatabase::createQuery(dmProviderOperation op, char const* s)
+{
+  dmProviderQuery* q = new dmProviderQueryImpl();
+  switch (op)
+  {
+    case dmProviderOperation_Get:
+    q->setQueryString(op, s);
+    break;
+
+    case dmProviderOperation_Set:
+    q->setQueryString(op, s);
+    break;
+  }
+  return q;
 }
