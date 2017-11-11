@@ -79,8 +79,10 @@ if (BUILD_DATAPROVIDER_LIB)
     dataProvider
     SHARED
     dataProvider/dmProviderDatabase.cpp
+    dataProvider/dmProviderHost.cpp
     dataProvider/dmPropertyInfo.cpp
     dataProvider/dmProviderInfo.cpp
+    dataProvider/dmQueryResult.cpp
     dataProvider/dmValue.cpp)
   add_dependencies(
     dataProvider

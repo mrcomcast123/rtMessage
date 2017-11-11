@@ -1,0 +1,51 @@
+/* Copyright [2017] [Comcast, Corp.]
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#include "dmQueryResult.h"
+#include <iterator>
+
+dmQueryResult::dmQueryResult()
+{
+}
+
+void
+dmQueryResult::clear()
+{
+  m_status = 0;
+  m_values.clear();
+}
+
+void
+dmQueryResult::merge(dmQueryResult const& result)
+{
+  m_values.insert(std::end(m_values), std::begin(result.m_values), std::end(result.m_values));
+  if (m_status == 0 && result.m_status != 0)
+    m_status = result.m_status;
+}
+
+void
+dmQueryResult::addValue(dmNamedValue const& val, int code, char const* msg)
+{
+  if (m_status == 0 && code != 0)
+    m_status = code;
+  m_values.push_back(Param(code, msg, val));
+}
+
+dmQueryResult::Param::Param(int code, char const* msg, dmNamedValue const& val)
+  : StatusCode(code)
+  , Value(val)
+{
+  if (msg)
+    StatusMessage = msg;
+}

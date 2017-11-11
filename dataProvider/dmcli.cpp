@@ -125,11 +125,11 @@ int main(int argc, char *argv[])
   {
     dmQueryResult const& results = query->results();
     std::cout << "result_code:" << results.status() << std::endl;
-    for (auto const& val : results.values())
+    for (auto const& param: results.values())
     {
-      std::cout << val.name();
+      std::cout << param.Value.name();
       std::cout << "=";
-      std::cout << val.value().toString();
+      std::cout << param.Value.value().toString();
       std::cout << std::endl;
     }
     std::cout << std::endl;

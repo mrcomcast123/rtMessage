@@ -15,25 +15,36 @@
 #ifndef __DM_QUERY_RESULT_H__
 #define __DM_QUERY_RESULT_H__
 
+#include "dmValue.h"
+#include <vector>
+
 class dmQueryResult
 {
 public:
-  dmQueryResult() { }
+  struct Param
+  {
+    Param(int code, char const* msg, dmNamedValue const& val);
+    int StatusCode;
+    std::string StatusMessage;
+    dmNamedValue Value;
+  };
+
+  dmQueryResult();
 
   void clear();
+  void merge(dmQueryResult const& resuls);
+  void setStatus(int status);
+  void addValue(dmNamedValue const& val, int code = 0, char const* msg = nullptr);
 
   inline int status() const
     { return m_status; }
 
-  inline void addValue(dmNamedValue const& val)
-    { m_values.push_back(val); }
-
-  inline std::vector<dmNamedValue> values() const
+  inline std::vector<Param> values() const
     { return m_values; }
 
 private:
   int m_status;
-  std::vector<dmNamedValue> m_values;
+  std::vector<Param> m_values;
 };
 
 #endif
