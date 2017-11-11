@@ -16,7 +16,7 @@
 #define __DM_PROVIDER_DATABASE_H__
 
 #include "dmProviderInfo.h"
-#include "dmProviderQuery.h"
+#include "dmQuery.h"
 #include "dmProviderOperation.h"
 #include "dmPropertyInfo.h"
 
@@ -30,8 +30,8 @@ public:
   dmProviderDatabase(std::string const& dir);
   std::vector<dmPropertyInfo> get(char const* query);
 
-  dmProviderQuery* createQuery();
-  dmProviderQuery* createQuery(dmProviderOperation op, char const* s);
+  dmQuery* createQuery();
+  dmQuery* createQuery(dmProviderOperation op, char const* s);
 
 private:
   void loadFromDir(std::string const& dir);

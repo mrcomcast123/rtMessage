@@ -12,21 +12,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef __DM_PROVIDER_QUERY_H__
-#define __DM_PROVIDER_QUERY_H__
+#ifndef __DM_QUERY_H__
+#define __DM_QUERY_H__
 
 #include "dmValue.h"
 #include "dmProviderOperation.h"
-#include "dmProviderQueryResult.h"
+#include "dmQueryResult.h"
 
-class dmProviderQuery
+class dmQuery
 {
 public:
-  virtual ~dmProviderQuery() { }
+  virtual ~dmQuery() { }
   virtual bool exec() = 0;
   virtual void reset() = 0;
   virtual void setQueryString(dmProviderOperation op, char const* s) = 0;
-  virtual dmProviderQueryResult const& results() = 0;
+  virtual dmQueryResult const& results() = 0;
 };
 
 #endif

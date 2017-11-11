@@ -13,11 +13,12 @@
  * limitations under the License.
  */
 #include "dmProviderDatabase.h"
-#include "dmProviderQuery.h"
+#include "dmQuery.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <iostream>
 
 void print_help()
 {
@@ -115,15 +116,23 @@ int main(int argc, char *argv[])
 
   dmProviderDatabase db(datamodel_dir);
 
-  std::unique_ptr<dmProviderQuery> query(db.createQuery(op, param_list));
+  std::unique_ptr<dmQuery> query(db.createQuery(op, param_list));
   if (!query->exec())
   {
     exit_code = -1;
   }
   else
   {
-    dmProviderQueryResult const& results = query->results();
-    // TODO: print results
+    dmQueryResult const& results = query->results();
+    std::cout << "result_code:" << results.status() << std::endl;
+    for (auto const& val : results.values())
+    {
+      std::cout << val.name();
+      std::cout << "=";
+      std::cout << val.value().toString();
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
   }
 
   return exit_code;

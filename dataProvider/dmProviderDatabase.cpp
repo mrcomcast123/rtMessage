@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 #include "dmProviderDatabase.h"
-#include "dmProviderQuery.h"
+#include "dmQuery.h"
 
 #include <iostream>
 #include <dirent.h>
@@ -35,7 +35,7 @@ extern "C"
 }
 
 // TODO: Implement me
-class dmProviderQueryImpl : public dmProviderQuery
+class dmQueryImpl : public dmQuery
 {
 public:
   virtual bool exec()
@@ -51,12 +51,12 @@ public:
   {
   }
 
-  virtual dmProviderQueryResult const& results()
+  virtual dmQueryResult const& results()
   {
     return m_results;
   }
 private:
-  dmProviderQueryResult m_results;
+  dmQueryResult m_results;
 };
 
 void splitQuery(char const* query, char* model, char* parameter);
@@ -251,16 +251,16 @@ void doGet(std::string const& providerName, std::vector<dmPropertyInfo> &propert
   delete [] parameter;
 }
 
-dmProviderQuery*
+dmQuery*
 dmProviderDatabase::createQuery()
 {
-  return new dmProviderQueryImpl();
+  return new dmQueryImpl();
 }
 
-dmProviderQuery* 
+dmQuery* 
 dmProviderDatabase::createQuery(dmProviderOperation op, char const* s)
 {
-  dmProviderQuery* q = new dmProviderQueryImpl();
+  dmQuery* q = new dmQueryImpl();
   switch (op)
   {
     case dmProviderOperation_Get:

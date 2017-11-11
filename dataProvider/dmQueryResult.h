@@ -12,17 +12,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef __DM_PROVIDER_QUERY_RESULT_H__
-#define __DM_PROVIDER_QUERY_RESULT_H__
+#ifndef __DM_QUERY_RESULT_H__
+#define __DM_QUERY_RESULT_H__
 
-class dmProviderQueryResult
+class dmQueryResult
 {
 public:
-  dmProviderQueryResult() { }
+  dmQueryResult() { }
 
   void clear();
 
-  inline int status()
+  inline int status() const
     { return m_status; }
 
   inline void addValue(dmNamedValue const& val)
