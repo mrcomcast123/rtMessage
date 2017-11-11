@@ -15,15 +15,27 @@ option(BUILD_RTMESSAGE_ROUTED "BUILD_RTMESSAGE_ROUTED" ON)
 
 set(CMAKE_C_FLAGS "")
 
+ExternalProject_Add(
+  cJSON
+  GIT_REPOSITORY https://github.com/DaveGamble/cJSON.git
+  GIT_TAG v1.6.0
+  INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}
+  INSTALL_COMMAND ""
+  CONFIGURE_COMMAND ""
+  BUILD_IN_SOURCE 1
+  PREFIX deps
+  BUILD_COMMAND make)
+
 if (BUILD_FOR_DESKTOP)
-    set(CJSON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cJSON)
-    set(LIBRARY_DIR ${CJSON_DIR})
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}
-			${CJSON_DIR}
-		       )
-    link_directories(${CMAKE_CURRENT_SOURCE_DIR}
-	             ${LIBRARY_DIR}
-                    )
+    include_directories(
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_BINARY_DIR}/deps/src/cJSON)
+
+    link_directories(
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_BINARY_DIR}/deps/src/cJSON
+        ${CMAKE_BINARY_DIR}
+        ${LIBRARY_DIR})
 else()
      set(INCLUDE_DIR ${CMAKE_INSTALL_PREFIX}/include)
      set(LIBRARY_DIR ${CMAKE_INSTALL_PREFIX}/lib)
@@ -70,8 +82,10 @@ endif (BUILD_RTMESSAGE_LIB)
 if (BUILD_RTMESSAGE_ROUTED)
     message ("Building rtrouted")
     set(CMAKE_CFLAGS " ${CMAKE_C_FLAGS}")
-    #link_directories(${RTMESSAGE_LINK_DIRECTORIES})
     add_executable(rtrouted_app rtrouted.c)
+    if (BUILD_FOR_DESKTOP)
+      add_dependencies(rtrouted_app cJSON)
+    endif(foo)
     set_target_properties(rtrouted_app PROPERTIES OUTPUT_NAME "rtrouted")
     target_link_libraries(rtrouted_app ${LIBRARY_LINKER_OPTIONS} rtMessaging_lib)
     target_compile_definitions(rtrouted_app PRIVATE RT_PLATFORM_LINUX)
@@ -83,21 +97,33 @@ if (BUILD_RTMESSAGE_SAMPLE_APP)
     link_directories(${RTMESSAGE_LINK_DIRECTORIES})
     #send
     add_executable(rtmessage_sample_app_send sample_send.c)
+    if (BUILD_FOR_DESKTOP)
+      add_dependencies(rtmessage_sample_app_send cJSON)
+    endif (BUILD_FOR_DESKTOP)
     set_target_properties(rtmessage_sample_app_send PROPERTIES OUTPUT_NAME "sample_send")
     target_link_libraries(rtmessage_sample_app_send ${LIBRARY_LINKER_OPTIONS} rtMessaging_lib)
     target_compile_definitions(rtmessage_sample_app_send PRIVATE RT_PLATFORM_LINUX)
     #recv
     add_executable(rtmessage_sample_app_recv sample_recv.c)
+    if (BUILD_FOR_DESKTOP)
+      add_dependencies(rtmessage_sample_app_recv cJSON)
+    endif (BUILD_FOR_DESKTOP)
     set_target_properties(rtmessage_sample_app_recv PROPERTIES OUTPUT_NAME "sample_recv")
     target_link_libraries(rtmessage_sample_app_recv ${LIBRARY_LINKER_OPTIONS} rtMessaging_lib)
     target_compile_definitions(rtmessage_sample_app_recv PRIVATE RT_PLATFORM_LINUX)
     #request
     add_executable(rtmessage_sample_app_req sample_req.c)
+    if (BUILD_FOR_DESKTOP)
+      add_dependencies(rtmessage_sample_app_req cJSON)
+    endif (BUILD_FOR_DESKTOP)
     set_target_properties(rtmessage_sample_app_req PROPERTIES OUTPUT_NAME "sample_req")
     target_link_libraries(rtmessage_sample_app_req ${LIBRARY_LINKER_OPTIONS} rtMessaging_lib)
     target_compile_definitions(rtmessage_sample_app_req PRIVATE RT_PLATFORM_LINUX)
     #response
     add_executable(rtmessage_sample_app_res sample_res.c)
+    if (BUILD_FOR_DESKTOP)
+      add_dependencies(rtmessage_sample_app_res cJSON)
+    endif (BUILD_FOR_DESKTOP)
     set_target_properties(rtmessage_sample_app_res PROPERTIES OUTPUT_NAME "sample_res")
     target_link_libraries(rtmessage_sample_app_res ${LIBRARY_LINKER_OPTIONS} rtMessaging_lib)
     target_compile_definitions(rtmessage_sample_app_res PRIVATE RT_PLATFORM_LINUX)
