@@ -56,8 +56,8 @@ int main()
   rtLog_SetLevel(RT_LOG_DEBUG);
 
   rtConnection con;
-  rtConnection_Create(&con, "PROVIDER1", "tcp://127.0.0.1:10001");
-  rtConnection_AddListener(con, "RDK.MODEL.PROVIDER1", onMessage, con);
+  rtConnection_Create(&con, "general", "tcp://127.0.0.1:10001");
+  rtConnection_AddListener(con, "RDK.MODEL.general", onMessage, con);
 
   while (1)
   {

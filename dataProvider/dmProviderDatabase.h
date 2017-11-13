@@ -28,7 +28,7 @@ class dmProviderDatabase
 {
 public:
   dmProviderDatabase(std::string const& dir);
-  std::vector<dmPropertyInfo> get(char const* query);
+  std::string const getProvider(char const* query);
 
   dmQuery* createQuery();
   dmQuery* createQuery(dmProviderOperation op, char const* s);

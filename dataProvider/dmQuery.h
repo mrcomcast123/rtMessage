@@ -26,6 +26,7 @@ public:
   virtual bool exec() = 0;
   virtual void reset() = 0;
   virtual void setQueryString(dmProviderOperation op, char const* s) = 0;
+  virtual void setProviderName(std::string provider) = 0;
   virtual dmQueryResult const& results() = 0;
 };
 

@@ -31,7 +31,22 @@ extern "C"
 #include "rtConnection.h"
 #include "rtMessage.h"
 #include "rtError.h"
+#include "rtLog.h"
 #include <cJSON.h>
+}
+
+void splitQuery(char const* query, char* model, char* parameter);
+//void doGet(std::string const& providerName, std::vector<dmPropertyInfo> &propertyName);
+
+void splitQuery(char const* query, char* model, char* parameter)
+{
+  std::string str(query);
+  std::size_t position = str.find_last_of(".\\");
+  model[0]= '\0';
+  std::strcat(model , str.substr(0, position).c_str());
+  parameter[0]= '\0';
+  std::strcat(parameter, str.substr(position+1).c_str());
+  str.clear();
 }
 
 // TODO: Implement me
@@ -40,38 +55,93 @@ class dmQueryImpl : public dmQuery
 public:
   virtual bool exec()
   {
-    return false;
+    std::string topic("RDK.MODEL.");
+    topic += m_provider;
+
+    rtLog_Info("\nTOPIC TO SEND : %s", topic.c_str());
+
+    rtLog_SetLevel(RT_LOG_DEBUG);
+
+    rtConnection con;
+    rtConnection_Create(&con, "DMCLIENT", "tcp://127.0.0.1:10001");
+
+     /* TODO send request to provider using rtmessage" */
+    rtMessage res;
+    rtMessage req;
+    rtMessage_Create(&req);
+    rtMessage_SetString(req, "propertyName", m_query.c_str());
+    if (strcmp(m_operation.c_str(), "set") == 0)
+      rtMessage_SetString(req, "value", m_value.c_str());
+
+    rtError err = rtConnection_SendRequest(con, req, topic.c_str(), &res, 2000);
+    rtLog_Info("SendRequest : %s", rtStrError(err));
+
+    if (err == RT_OK)
+    {
+      char* p = NULL;
+      uint32_t len = 0;
+
+      rtMessage_ToString(res, &p, &len);
+      rtLog_Info("\tResponse : %.*s\n", len, p);
+      free(p);
+    }
+
+    rtMessage_Destroy(req);
+    rtMessage_Destroy(res);
+
+    rtConnection_Destroy(con);
+    return true;
   }
 
   virtual void reset()
   {
+    m_query.clear();
+    m_provider.clear();
+    m_value.clear();
+  }
+
+  void setProviderName(std::string provider)
+  {
+    m_provider = provider;
   }
 
   virtual void setQueryString(dmProviderOperation op, char const* s)
   {
+    switch (op)
+    {
+      case dmProviderOperation_Get:
+      {
+        m_operation = "get";
+        m_query = s;
+      }
+      break;
+      case dmProviderOperation_Set:
+      {
+        m_operation = "set";
+        std::string data(s);
+        if (data.find("=") != std::string::npos)
+        {
+          std::size_t position = data.find("=");
+          m_query = data.substr(0, position);
+          m_value = data.substr(position+1);
+        }
+        break;
+      }
+    }
   }
 
   virtual dmQueryResult const& results()
   {
     return m_results;
   }
+
 private:
   dmQueryResult m_results;
+  std::string m_query;
+  std::string m_provider;
+  std::string m_value;
+  std::string m_operation;
 };
-
-void splitQuery(char const* query, char* model, char* parameter);
-void doGet(std::string const& providerName, std::vector<dmPropertyInfo> &propertyName);
-
-void splitQuery(char const* query, char* model, char* parameter)
-{
-  std::string str(query);
-  std::size_t position = str.find_last_of(".\\");  
-  model[0]= '\0';
-  std::strcat(model , str.substr(0, position).c_str()); 
-  parameter[0]= '\0'; 
-  std::strcat(parameter, str.substr(position+1).c_str());
-  str.clear();
-}
 
 dmProviderDatabase::dmProviderDatabase(std::string const& dir)
   : m_dataModelDir(dir)
@@ -79,14 +149,15 @@ dmProviderDatabase::dmProviderDatabase(std::string const& dir)
   loadFromDir(dir);
 }
 
-void dmProviderDatabase::loadFromDir(std::string const& dir)
+void
+dmProviderDatabase::loadFromDir(std::string const& dir)
 {
   DIR* directory;
   struct dirent *ent;
 
   if ((directory = opendir(m_dataModelDir.c_str())) != NULL) 
   {
-     /* print all the files and directories within directory */
+     /* Print all the files and directories within directory */
     while ((ent = readdir(directory)) != NULL) 
     {
       if (strcmp(ent->d_name,".")!=0 && strcmp(ent->d_name,"..")!=0 )
@@ -100,7 +171,8 @@ void dmProviderDatabase::loadFromDir(std::string const& dir)
   }
 }
 
-void dmProviderDatabase::loadFile(char const* dir, char const* fname)
+void
+dmProviderDatabase::loadFile(char const* dir, char const* fname)
 {
   cJSON* json = NULL;
   char *file = new char[80];
@@ -112,6 +184,8 @@ void dmProviderDatabase::loadFile(char const* dir, char const* fname)
   root.erase(root.length()-5);
 
   printf("\nRoot %s", root.c_str());
+
+  printf("\nFile %s", file);
 
   std::ifstream ifile;
   ifile.open(file, std::ifstream::in);
@@ -162,7 +236,8 @@ void dmProviderDatabase::loadFile(char const* dir, char const* fname)
   delete [] file;
 }
 
-std::vector<dmPropertyInfo> dmProviderDatabase::get(char const* query)
+std::string const
+dmProviderDatabase::getProvider(char const* query)
 {
   char* model = new char[100];
   char* parameter = new char[50];
@@ -170,6 +245,14 @@ std::vector<dmPropertyInfo> dmProviderDatabase::get(char const* query)
   int found = 0;
   std::vector<dmPropertyInfo> getInfo;
   splitQuery(query, model, parameter);
+
+  std::string data(parameter);
+  if (data.find("=") != std::string::npos)
+  {
+    std::size_t position = data.find("=");
+    std::string param = data.substr(0, position);
+    strcpy(parameter, param.c_str());
+  }
 
   for (auto map_iter = m_providerInfo.cbegin() ; map_iter != m_providerInfo.cend() ; map_iter++)
   {
@@ -197,58 +280,18 @@ std::vector<dmPropertyInfo> dmProviderDatabase::get(char const* query)
   }
 
   if (!found)
+  {
     printf("\n Paramter not found");
+    exit (0);
+  }
   else
   {
     printf("\nPROVIDER : %s PARAMETER : %s\n", provider, parameter);
-    std::string dataProvider(provider);
-    doGet(dataProvider, getInfo);
   }
 
-  delete [] provider;
   delete [] parameter;
   delete [] model;
-  return getInfo;
-}
-
-void doGet(std::string const& providerName, std::vector<dmPropertyInfo> &propertyName)
-{
-  rtConnection con;
-  rtConnection_Create(&con, "DMCLIENT", "tcp://127.0.0.1:10001");
-
-  dmPropertyInfo dI = propertyName.back();
-  propertyName.pop_back();
-
-  char* parameter = new char[strlen(dI.name().c_str())+1];
-
-  strncpy(parameter, dI.name().c_str(), strlen(dI.name().c_str())+1);
-  parameter[strlen(parameter)+1] = '\0';
-
-  /* TODO send request to provider using rtmessage" */
-  rtMessage res;
-  rtMessage req;
-  rtMessage_Create(&req);
-  rtMessage_SetString(req, "propertyName", parameter);
-
-  rtError err = rtConnection_SendRequest(con, req, providerName.c_str(), &res, 2000);
-  printf("SendRequest:%s", rtStrError(err));
-
-  if (err == RT_OK)
-  {
-    char* p = NULL;
-    uint32_t len = 0;
-
-    rtMessage_ToString(res, &p, &len);
-    printf("\tres:%.*s\n", len, p);
-    free(p);
-  }
-
-  rtMessage_Destroy(req);
-  rtMessage_Destroy(res);
-
-  rtConnection_Destroy(con);
-
-  delete [] parameter;
+  return provider;
 }
 
 dmQuery*
@@ -261,15 +304,12 @@ dmQuery*
 dmProviderDatabase::createQuery(dmProviderOperation op, char const* s)
 {
   dmQuery* q = new dmQueryImpl();
-  switch (op)
-  {
-    case dmProviderOperation_Get:
-    q->setQueryString(op, s);
-    break;
 
-    case dmProviderOperation_Set:
-    q->setQueryString(op, s);
-    break;
+  std::string provider = getProvider(s);
+  if (!provider.empty())
+  {
+   q->setQueryString(op, s);
+   q->setProviderName(provider);
   }
   return q;
 }
