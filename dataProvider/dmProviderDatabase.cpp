@@ -55,6 +55,9 @@ class dmQueryImpl : public dmQuery
 public:
   virtual bool exec()
   {
+    if(m_provider.empty())
+      return false;
+
     std::string topic("RDK.MODEL.");
     topic += m_provider;
 
@@ -69,6 +72,7 @@ public:
     rtMessage res;
     rtMessage req;
     rtMessage_Create(&req);
+    rtMessage_SetString(req, "operation", m_operation.c_str());
     rtMessage_SetString(req, "propertyName", m_query.c_str());
     if (strcmp(m_operation.c_str(), "set") == 0)
       rtMessage_SetString(req, "value", m_value.c_str());
@@ -105,7 +109,7 @@ public:
     m_provider = provider;
   }
 
-  virtual void setQueryString(dmProviderOperation op, char const* s)
+  virtual bool setQueryString(dmProviderOperation op, char const* s)
   {
     switch (op)
     {
@@ -125,9 +129,15 @@ public:
           m_query = data.substr(0, position);
           m_value = data.substr(position+1);
         }
+        else
+        {
+          printf("\nSet operation expects value to be set\n");
+          return false;
+        }
         break;
       }
     }
+    return true;
   }
 
   virtual dmQueryResult const& results()
@@ -245,6 +255,7 @@ dmProviderDatabase::getProvider(char const* query)
   int found = 0;
   std::vector<dmPropertyInfo> getInfo;
   splitQuery(query, model, parameter);
+  std::string dataProvider;
 
   std::string data(parameter);
   if (data.find("=") != std::string::npos)
@@ -264,13 +275,13 @@ dmProviderDatabase::getProvider(char const* query)
         if (strcmp(parameter, "") == 0)
         {
           printf("\nWild Card will be supported in future\n");
-          exit(0);
+          break;
+          //exit(0);
         }
         else if (strcmp(vec_iter->name().c_str(), parameter) == 0)
         {
           dI->setName(parameter);
-          // XXX: BUG sizeof() is returning size of pointer not length of string
-          strncpy(provider, map_iter->second.providerName().c_str(), sizeof(map_iter->second.providerName().c_str()));
+          provider = strdup(map_iter->second.providerName().c_str());
           getInfo.push_back(*dI);
           found = 1;
         }
@@ -281,17 +292,21 @@ dmProviderDatabase::getProvider(char const* query)
 
   if (!found)
   {
-    printf("\n Paramter not found");
-    exit (0);
+    printf("\n Parameter not found \n");
+    dataProvider = "";
   }
   else
   {
     printf("\nPROVIDER : %s PARAMETER : %s\n", provider, parameter);
+    dataProvider.clear();
+    dataProvider = std::string(provider);
   }
 
   delete [] parameter;
   delete [] model;
-  return provider;
+  delete [] provider;
+  provider = NULL;
+  return dataProvider;
 }
 
 dmQuery*
@@ -306,10 +321,12 @@ dmProviderDatabase::createQuery(dmProviderOperation op, char const* s)
   dmQuery* q = new dmQueryImpl();
 
   std::string provider = getProvider(s);
+
   if (!provider.empty())
   {
-   q->setQueryString(op, s);
-   q->setProviderName(provider);
+   bool status = q->setQueryString(op, s);
+   if(status)
+     q->setProviderName(provider);
   }
   return q;
 }

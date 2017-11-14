@@ -38,7 +38,7 @@ void onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void
     // create response
     rtMessage res;
     rtMessage_Create(&res);
-    rtMessage_SetString(res, "reply", "reply -- Hello World");
+    rtMessage_SetString(res, "reply", "reply -- general provider");
     rtConnection_SendResponse(con, hdr, res, 1000);
     rtMessage_Destroy(res);
   }

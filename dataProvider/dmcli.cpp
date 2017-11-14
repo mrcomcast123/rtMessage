@@ -19,6 +19,8 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <iostream>
+#include <string>
+#include <cstring>
 
 void print_help()
 {
@@ -33,10 +35,6 @@ void print_help()
   printf("\t1.) dmcli -g Device.DeviceInfo.ModelName,Device.DeviceInfo.SerialNumber\n");
   printf("\t2.) dmcli -s Services.Service.Foo.Bar=1,Services.Sevice.Foo.Baz=2\n");
   printf("\n");
-
-/*
-  printf("Usage:\n ./dm_provider option parameter \n Eg: ./dm_provider getopt Device.DeviceInfo.Manufacturer \n Eg: ./dm_provider setopt Device.DeviceInfo.Manufacturer Sercomm");
-  */
 }
 
 
@@ -109,12 +107,45 @@ int main(int argc, char *argv[])
 
   if (!param_list)
   {
-    printf("no parameter list found\n");
+    printf("\nNo parameter list found\n");
     print_help();
     exit(1);
   }
 
   dmProviderDatabase db(datamodel_dir);
+
+  size_t pos = 0;
+  std::string delimiter = ",";
+  std::string paramlist(param_list);
+  std::string token;
+
+  while ((pos = paramlist.find(delimiter)) != std::string::npos)
+  {
+    token = paramlist.substr(0, pos);
+    strcpy(param_list, token.c_str());
+    paramlist.erase(0, pos + delimiter.length());
+
+    std::unique_ptr<dmQuery> query(db.createQuery(op, param_list));
+    if (!query->exec())
+    {
+      exit_code = -1;
+    }
+    else
+    {
+      dmQueryResult const& results = query->results();
+      std::cout << "result_code:" << results.status() << std::endl;
+      for (auto const& param: results.values())
+      {
+        std::cout << param.Value.name();
+        std::cout << "=";
+        std::cout << param.Value.value().toString();
+        std::cout << std::endl;
+      }
+      std::cout << std::endl;
+    }
+  }
+
+  strcpy(param_list, paramlist.c_str());
 
   std::unique_ptr<dmQuery> query(db.createQuery(op, param_list));
   if (!query->exec())
@@ -134,6 +165,5 @@ int main(int argc, char *argv[])
     }
     std::cout << std::endl;
   }
-
   return exit_code;
 }
