@@ -38,7 +38,7 @@ void onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void
     // create response
     rtMessage res;
     rtMessage_Create(&res);
-    rtMessage_SetString(res, "reply", "reply -- Hello World");
+    rtMessage_SetString(res, "reply", "reply -- WiFi Provider");
     rtConnection_SendResponse(con, hdr, res, 1000);
     rtMessage_Destroy(res);
   }
@@ -56,8 +56,8 @@ int main()
   rtLog_SetLevel(RT_LOG_DEBUG);
 
   rtConnection con;
-  rtConnection_Create(&con, "PROVIDER1", "tcp://127.0.0.1:10001");
-  rtConnection_AddListener(con, "RDK.MODEL.PROVIDER1", onMessage, con);
+  rtConnection_Create(&con, "netsrvmgr", "tcp://127.0.0.1:10001");
+  rtConnection_AddListener(con, "RDK.MODEL.netsrvmgr", onMessage, con);
 
   while (1)
   {

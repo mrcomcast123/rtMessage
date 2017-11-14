@@ -18,6 +18,7 @@ option(BUILD_RTMESSAGE_SAMPLE_APP "BUILD_RTMESSAGE_SAMPLE_APP" OFF)
 option(BUILD_RTMESSAGE_ROUTED "BUILD_RTMESSAGE_ROUTED" ON)
 option(BUILD_DATAPROVIDER_LIB "BUILD_DATAPROVIDER_LIB" OFF)
 option(BUILD_DMCLI "BUILD_DMCLI" ON)
+option(BUILD_DMCLI_SAMPLE_APP "BUILD_DMCLI_SAMPLE_APP" ON)
 
 set(CMAKE_C_FLAGS "")
 
@@ -112,6 +113,23 @@ if (BUILD_DMCLI)
   target_link_libraries(dmcli dataProvider rtMessage)
   add_definitions("-DDEFAULT_DATAMODELDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/dataProvider/data\"")
 endif (BUILD_DMCLI)
+
+if (BUILD_DMCLI_SAMPLE_APP)
+    # sample_prov1
+    add_executable(sample_prov1 dataProvider/sample_prov1.c)
+    if (BUILD_FOR_DESKTOP)
+      add_dependencies(sample_prov1 cJSON rtMessage dataProvider)
+    endif (BUILD_FOR_DESKTOP)
+    target_link_libraries(sample_prov1 ${LIBRARY_LINKER_OPTIONS} rtMessage)
+    target_compile_definitions(sample_prov1 PRIVATE RT_PLATFORM_LINUX)
+    # sample_prov2
+    add_executable(sample_prov2 dataProvider/sample_prov2.c)
+    if (BUILD_FOR_DESKTOP)
+      add_dependencies(sample_prov2 cJSON rtMessage dataProvider)
+    endif (BUILD_FOR_DESKTOP)
+    target_link_libraries(sample_prov2 ${LIBRARY_LINKER_OPTIONS} rtMessage)
+    target_compile_definitions(sample_prov2 PRIVATE RT_PLATFORM_LINUX)
+endif (BUILD_DMCLI_SAMPLE_APP)
 
 if (BUILD_RTMESSAGE_SAMPLE_APP)
     # sample_send
