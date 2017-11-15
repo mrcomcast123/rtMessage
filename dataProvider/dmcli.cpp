@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <cstring>
@@ -42,7 +43,7 @@ int main(int argc, char *argv[])
 {
   int exit_code = 0;
   bool verbose = false;
-  char* param_list = nullptr;
+  std::string param_list;
 
   #ifdef DEFAULT_DATAMODELDIR
   std::string datamodel_dir = DEFAULT_DATAMODELDIR;
@@ -105,7 +106,7 @@ int main(int argc, char *argv[])
     }
   }
 
-  if (!param_list)
+  if (param_list.empty())
   {
     printf("\nNo parameter list found\n");
     print_help();
@@ -114,18 +115,20 @@ int main(int argc, char *argv[])
 
   dmProviderDatabase db(datamodel_dir);
 
-  size_t pos = 0;
-  std::string delimiter = ",";
-  std::string paramlist(param_list);
-  std::string token;
+  size_t begin = 0;
+  size_t end = 0;
 
-  while ((pos = paramlist.find(delimiter)) != std::string::npos)
+  while (begin != std::string::npos)
   {
-    token = paramlist.substr(0, pos);
-    strcpy(param_list, token.c_str());
-    paramlist.erase(0, pos + delimiter.length());
+    // split token on ',' and remove whitespace
+    end = param_list.find(',', begin);
+    std::string token = param_list.substr(begin, (end - begin));
+    token.erase(std::remove_if(token.begin(), token.end(), [](char c)
+    {
+      return ::isspace(c);
+    }), token.end());
 
-    std::unique_ptr<dmQuery> query(db.createQuery(op, param_list));
+    std::unique_ptr<dmQuery> query(db.createQuery(op, token.c_str()));
     if (!query->exec())
     {
       exit_code = -1;
@@ -143,27 +146,9 @@ int main(int argc, char *argv[])
       }
       std::cout << std::endl;
     }
+
+    begin = end == std::string::npos ? std::string::npos : end + 1;
   }
 
-  strcpy(param_list, paramlist.c_str());
-
-  std::unique_ptr<dmQuery> query(db.createQuery(op, param_list));
-  if (!query->exec())
-  {
-    exit_code = -1;
-  }
-  else
-  {
-    dmQueryResult const& results = query->results();
-    std::cout << "result_code:" << results.status() << std::endl;
-    for (auto const& param: results.values())
-    {
-      std::cout << param.Value.name();
-      std::cout << "=";
-      std::cout << param.Value.value().toString();
-      std::cout << std::endl;
-    }
-    std::cout << std::endl;
-  }
   return exit_code;
 }
