@@ -91,6 +91,7 @@ if (BUILD_DATAPROVIDER_LIB)
     dataProvider/dmPropertyInfo.cpp
     dataProvider/dmProviderInfo.cpp
     dataProvider/dmQueryResult.cpp
+    dataProvider/dmProvider.cpp
     dataProvider/dmValue.cpp)
   add_dependencies(
     dataProvider
@@ -133,6 +134,12 @@ if (BUILD_DMCLI_SAMPLE_APP)
       add_dependencies(sample_prov2 cJSON rtMessage dataProvider)
     endif (BUILD_FOR_DESKTOP)
     target_link_libraries(sample_prov2 ${LIBRARY_LINKER_OPTIONS} rtMessage)
+    # sample_provider
+    add_executable(sample_provider dataProvider/sample_provider.cpp)
+    if (BUILD_FOR_DESKTOP)
+      add_dependencies(sample_provider cJSON rtMessage dataProvider)
+    endif (BUILD_FOR_DESKTOP)
+    target_link_libraries(sample_provider ${LIBRARY_LINKER_OPTIONS} rtMessage dataProvider)
 endif (BUILD_DMCLI_SAMPLE_APP)
 
 if (BUILD_RTMESSAGE_SAMPLE_APP)

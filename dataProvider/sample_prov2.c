@@ -21,10 +21,12 @@
 
 void onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void* closure)
 {
+  int id = 0;
   rtConnection con = (rtConnection) closure;
 
   rtMessage req;
   rtMessage_FromBytes(&req, buff, n);
+  rtMessage_GetInt32(req, "id", &id);
 
   if (rtMessageHeader_IsRequest(hdr))
   {
@@ -38,6 +40,7 @@ void onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void
     // create response
     rtMessage res;
     rtMessage_Create(&res);
+    rtMessage_SetInt32(res, "id", id);
     rtMessage_SetString(res, "reply", "reply -- WiFi Provider");
     rtConnection_SendResponse(con, hdr, res, 1000);
     rtMessage_Destroy(res);

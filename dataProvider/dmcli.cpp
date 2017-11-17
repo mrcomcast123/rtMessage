@@ -115,6 +115,12 @@ int main(int argc, char *argv[])
 
   dmProviderDatabase db(datamodel_dir);
 
+  size_t pos = 0;
+  std::string delimiter = ",";
+  std::string paramlist(param_list);
+  std::string token;
+  int id = 0;
+
   size_t begin = 0;
   size_t end = 0;
 
@@ -128,7 +134,8 @@ int main(int argc, char *argv[])
       return ::isspace(c);
     }), token.end());
 
-    std::unique_ptr<dmQuery> query(db.createQuery(op, token.c_str()));
+    std::unique_ptr<dmQuery> query(db.createQuery(op, token.c_str(), id++));
+
     if (!query->exec())
     {
       exit_code = -1;
@@ -140,7 +147,7 @@ int main(int argc, char *argv[])
       for (auto const& param: results.values())
       {
         std::cout << param.Value.name();
-        std::cout << "=";
+        std::cout << " = ";
         std::cout << param.Value.value().toString();
         std::cout << std::endl;
       }

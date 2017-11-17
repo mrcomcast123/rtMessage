@@ -35,6 +35,12 @@ dmQueryResult::merge(dmQueryResult const& result)
 }
 
 void
+dmQueryResult::setStatus(int status)
+{
+  m_status = status;
+}
+
+void
 dmQueryResult::addValue(dmNamedValue const& val, int code, char const* msg)
 {
   if (m_status == 0 && code != 0)

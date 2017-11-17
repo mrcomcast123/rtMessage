@@ -21,10 +21,12 @@
 
 void onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void* closure)
 {
+  int id = 0;
   rtConnection con = (rtConnection) closure;
 
   rtMessage req;
   rtMessage_FromBytes(&req, buff, n);
+  rtMessage_GetInt32(req, "id", &id);
 
   if (rtMessageHeader_IsRequest(hdr))
   {
@@ -32,12 +34,13 @@ void onMessage(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n, void
     uint32_t buff_length = 0;
     
     rtMessage_ToString(req, &buff, &buff_length);
-    rtLog_Info("req:%.*s", buff_length, buff);
+    rtLog_Info("Req:%.*s", buff_length, buff);
     free(buff);
 
     // create response
     rtMessage res;
     rtMessage_Create(&res);
+    rtMessage_SetInt32(res, "id", id);
     rtMessage_SetString(res, "reply", "reply -- general provider");
     rtConnection_SendResponse(con, hdr, res, 1000);
     rtMessage_Destroy(res);

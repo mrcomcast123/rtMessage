@@ -35,28 +35,31 @@ extern "C"
 #include <cJSON.h>
 }
 
-void splitQuery(char const* query, char* model, char* parameter);
-//void doGet(std::string const& providerName, std::vector<dmPropertyInfo> &propertyName);
+#include "dmUtility.h"
 
-void splitQuery(char const* query, char* model, char* parameter)
-{
-  std::string str(query);
-  std::size_t position = str.find_last_of(".\\");
-  model[0]= '\0';
-  std::strcat(model , str.substr(0, position).c_str());
-  parameter[0]= '\0';
-  std::strcat(parameter, str.substr(position+1).c_str());
-  str.clear();
-}
-
-// TODO: Implement me
 class dmQueryImpl : public dmQuery
 {
 public:
+  dmQueryImpl()
+  {
+    rtConnection_Create(&m_con, "DMCLIENT", "tcp://127.0.0.1:10001");
+  }
+
+  ~dmQueryImpl()
+  {
+    rtConnection_Destroy(m_con);
+    m_results.clear();
+    reset();
+  }
+
   virtual bool exec()
   {
     if(m_provider.empty())
       return false;
+
+    char* param = new char[50];
+    char* value = new char[50];
+    int status = 0;
 
     std::string topic("RDK.MODEL.");
     topic += m_provider;
@@ -65,48 +68,54 @@ public:
 
     rtLog_SetLevel(RT_LOG_DEBUG);
 
-    rtConnection con;
-    rtConnection_Create(&con, "DMCLIENT", "tcp://127.0.0.1:10001");
-
-     /* TODO send request to provider using rtmessage" */
+    /* Send request to provider using rtmessage" */
     rtMessage res;
     rtMessage req;
     rtMessage_Create(&req);
-    rtMessage_SetString(req, "operation", m_operation.c_str());
-    rtMessage_SetString(req, "propertyName", m_query.c_str());
+    rtMessage_SetInt32(req, "id", m_count);
+    rtMessage_SetString(req, "method", m_operation.c_str());
+    rtMessage_SetString(req, "provider", m_provider.c_str());
+    rtMessage item;
+    rtMessage_Create(&item);
+    rtMessage_SetString(item, "name", m_query.c_str());
     if (strcmp(m_operation.c_str(), "set") == 0)
-      rtMessage_SetString(req, "value", m_value.c_str());
+      rtMessage_SetString(item, "value", m_value.c_str());
+    rtMessage_SetMessage(req, "params", item);
 
-    rtError err = rtConnection_SendRequest(con, req, topic.c_str(), &res, 2000);
-    rtLog_Info("SendRequest : %s", rtStrError(err));
+    rtError err = rtConnection_SendRequest(m_con, req, topic.c_str(), &res, 2000);
+    rtLog_Info("\nSendRequest : %s", rtStrError(err));
 
     if (err == RT_OK)
     {
+      /* Receive response and store in dmQueryResult */
       char* p = NULL;
       uint32_t len = 0;
 
       rtMessage_ToString(res, &p, &len);
-      rtLog_Info("\tResponse : %.*s\n", len, p);
+      rtMessage_GetString(res, "name", &param);
+      rtMessage_GetString(res, "value", &value);
+      rtMessage_GetInt32(res, "status", &status);
+      std::string parameter(param);
+      std::string paramvalue(value);
+      m_results.addValue(dmNamedValue(parameter, dmValue(paramvalue)), status, "Success");
+      rtLog_Info("\nResponse : %.*s\n", len, p);
       free(p);
     }
 
     rtMessage_Destroy(req);
     rtMessage_Destroy(res);
+    reset();
 
-    rtConnection_Destroy(con);
     return true;
   }
 
   virtual void reset()
   {
+    m_operation.clear();
     m_query.clear();
     m_provider.clear();
     m_value.clear();
-  }
-
-  void setProviderName(std::string provider)
-  {
-    m_provider = provider;
+    m_count = 0;
   }
 
   virtual bool setQueryString(dmProviderOperation op, char const* s)
@@ -145,12 +154,24 @@ public:
     return m_results;
   }
 
+  virtual void setProviderName(std::string provider)
+  {
+    m_provider = provider;
+  }
+
+  virtual void setID(int count)
+  {
+    m_count = count;
+  }
+
 private:
+  rtConnection m_con;
   dmQueryResult m_results;
   std::string m_query;
   std::string m_provider;
   std::string m_value;
   std::string m_operation;
+  int m_count;
 };
 
 dmProviderDatabase::dmProviderDatabase(std::string const& dir)
@@ -185,7 +206,7 @@ void
 dmProviderDatabase::loadFile(char const* dir, char const* fname)
 {
   cJSON* json = NULL;
-  char *file = new char[80];
+  char *file = new char[100];
   
   std::strcat(file, dir);
   std::strcat(file, fname);
@@ -254,7 +275,8 @@ dmProviderDatabase::getProvider(char const* query)
   char* provider = new char[50];
   int found = 0;
   std::vector<dmPropertyInfo> getInfo;
-  splitQuery(query, model, parameter);
+  dmUtility dUtil;
+  dUtil.splitQuery(query, model, parameter);
   std::string dataProvider;
 
   std::string data(parameter);
@@ -276,7 +298,6 @@ dmProviderDatabase::getProvider(char const* query)
         {
           printf("\nWild Card will be supported in future\n");
           break;
-          //exit(0);
         }
         else if (strcmp(vec_iter->name().c_str(), parameter) == 0)
         {
@@ -316,17 +337,17 @@ dmProviderDatabase::createQuery()
 }
 
 dmQuery* 
-dmProviderDatabase::createQuery(dmProviderOperation op, char const* s)
+dmProviderDatabase::createQuery(dmProviderOperation op, char const* s, const int id)
 {
   dmQuery* q = new dmQueryImpl();
-
   std::string provider = getProvider(s);
 
   if (!provider.empty())
   {
-   bool status = q->setQueryString(op, s);
-   if(status)
-     q->setProviderName(provider);
+    static_cast<dmQueryImpl*>(q)->setID(id);
+    bool status = q->setQueryString(op, s);
+    if(status)
+      static_cast<dmQueryImpl*>(q)->setProviderName(provider);
   }
   return q;
 }

@@ -100,7 +100,7 @@ dmValue::toString() const
       buff << "(null)";
       break;
     case dmValueType_String:
-      buff << m_string;
+      buff.str(m_string);
       break;
     case dmValueType_Int8:
       buff << m_value.int8Value;

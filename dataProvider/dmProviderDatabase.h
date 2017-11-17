@@ -31,7 +31,7 @@ public:
   std::string const getProvider(char const* query);
 
   dmQuery* createQuery();
-  dmQuery* createQuery(dmProviderOperation op, char const* s);
+  dmQuery* createQuery(dmProviderOperation op, char const* s, const int id);
 
 private:
   void loadFromDir(std::string const& dir);

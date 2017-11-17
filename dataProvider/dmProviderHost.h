@@ -26,6 +26,7 @@
 #include <vector>
 
 class dmProvider;
+class dmPropertyInfo;
 
 class dmProviderHost
 {

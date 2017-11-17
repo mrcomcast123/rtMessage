@@ -12,6 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cstring>
+
 #include "dmProvider.h"
 
 dmProvider::dmProvider()
@@ -35,15 +37,16 @@ dmProvider::doGet(std::vector<dmPropertyInfo> const& params, dmQueryResult& resu
 }
 
 void
-dmProvdider::doGet(dmPropertyInfo const& param, dmQueryResult& result)
+dmProvider::doGet(dmPropertyInfo const& param, dmQueryResult& result)
 {
+
 }
 
 void
 dmProvider::doSet(std::vector<dmNamedValue> const& params, dmQueryResult& result)
 {
   dmQueryResult temp;
-  for (auto const& value : values)
+  for (auto const& value : params)
   {
     doSet(value, temp);
     result.merge(temp);
@@ -54,4 +57,5 @@ dmProvider::doSet(std::vector<dmNamedValue> const& params, dmQueryResult& result
 void
 dmProvider::doSet(dmNamedValue const& param, dmQueryResult& result)
 {
+
 }

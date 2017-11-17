@@ -37,7 +37,7 @@ public:
   inline bool isWritable() const
     { return m_writable; }
 
-private:
+public:
   dmPropertyInfo();
   void setName(std::string const& name);
   void setType(dmValueType t);
