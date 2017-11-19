@@ -17,8 +17,11 @@
 
 #include "rtError.h"
 
-struct _rtMessage;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+struct _rtMessage;
 typedef struct _rtMessage* rtMessage;
 
 /**
@@ -193,4 +196,7 @@ rtMessage_GetSendTopic(rtMessage const m, char* topic);
 rtError
 rtMessage_SetSendTopic(rtMessage m, char const* topic);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

@@ -22,8 +22,11 @@
 class dmProvider
 {
 public:
-  dmProvider();
+  dmProvider(std::string const& name);
   virtual ~dmProvider();
+
+  inline std::string const& name() const
+    { return m_name; }
 
   virtual void doGet(std::vector<dmPropertyInfo> const& params, dmQueryResult& result);
   virtual void doSet(std::vector<dmNamedValue> const& params, dmQueryResult& result);
@@ -31,6 +34,9 @@ public:
 protected:
   virtual void doGet(dmPropertyInfo const& param, dmQueryResult& result);
   virtual void doSet(dmNamedValue const& param, dmQueryResult& result);
+
+protected:
+  std::string m_name;
 };
 
 #endif

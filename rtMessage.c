@@ -50,7 +50,7 @@ rtMessage_Create(rtMessage* message)
  * @return rtError
  */
 rtError
-rtMessage_Clone(const rtMessage message,rtMessage* copy)
+rtMessage_Clone(rtMessage const message, rtMessage* copy)
 {
   *copy = (rtMessage) malloc(sizeof(struct _rtMessage));
   if (copy)
@@ -289,15 +289,14 @@ rtMessage_GetDouble(rtMessage const  message,const char* name,double* value)
  * @return rtError
  **/
 rtError
-rtMessage_GetMessage(rtMessage const message, char const* name, rtMessage* item)
+rtMessage_GetMessage(rtMessage const message, char const* name, rtMessage* clone)
 {
-  if (!message)
-    return RT_ERROR_INVALID_ARG;
+  *clone = (rtMessage) malloc(sizeof(struct _rtMessage));
 
   cJSON* p = cJSON_GetObjectItem(message->json, name);
   if (p)
   {
-     (*item)->json = p;
+     (*clone)->json = cJSON_Duplicate(p, cJSON_True);
      return RT_OK;
   }
   return RT_FAIL;

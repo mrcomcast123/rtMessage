@@ -42,6 +42,10 @@ typedef int32_t rtThreadId;
 #define RT_THREADID_FMT "d"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum
 {
   RT_LOG_DEBUG = 0,
@@ -77,5 +81,8 @@ void rtLogPrintf(rtLogLevel level, const char* file, int line, const char* forma
 #define rtLog_Error(FORMAT, ...) rtLog(RT_LOG_ERROR, FORMAT, ## __VA_ARGS__)
 #define rtLog_Fatal(FORMAT, ...) rtLog(RT_LOG_FATAL, FORMAT, ## __VA_ARGS__)
 
+#ifdef __cplusplus
+}
+#endif
 #endif 
 

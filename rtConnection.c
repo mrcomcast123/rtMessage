@@ -185,19 +185,25 @@ rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count, int32_t timeo
   ssize_t bytes_read = 0;
   ssize_t bytes_to_read = count;
 
+  (void) timeout;
+
   while (bytes_read < bytes_to_read)
   {
     fd_set read_fds;
     FD_ZERO(&read_fds);
     FD_SET(con->fd, &read_fds);
 
+    #if 0
     if (timeout != INT32_MAX)
     {
-      struct timeval tv = { timeout, 0 };
+      // TODO: include suseconds_t tv_usecs;
+      time_t seconds = (timeout / 1000);
+      struct timeval tv = { seconds, 0 };
       select(con->fd + 1, &read_fds, NULL, NULL, &tv);
       if (!FD_ISSET(con->fd, &read_fds))
         return RT_ERROR_TIMEOUT;
     }
+    #endif
 
     ssize_t n = recv(con->fd, buff + bytes_read, (bytes_to_read - bytes_read), MSG_NOSIGNAL);
     if (n == 0)
@@ -249,6 +255,8 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
   memset(c->inbox_name, 0, RTMSG_HEADER_MAX_TOPIC_LENGTH);
   memset(&c->local_endpoint, 0, sizeof(struct sockaddr_storage));
   memset(&c->remote_endpoint, 0, sizeof(struct sockaddr_storage));
+  memset(c->send_buffer, 0, RTMSG_SEND_BUFFER_SIZE);
+  memset(c->recv_buffer, 0, RTMSG_SEND_BUFFER_SIZE);
   snprintf(c->inbox_name, RTMSG_HEADER_MAX_TOPIC_LENGTH, "%s.INBOX.%d", c->application_name, (int) getpid());
 
   err = rtSocketStorage_FromString(&c->remote_endpoint, router_config);
@@ -345,8 +353,9 @@ rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topi
 
   time_t start = time(NULL);
   time_t now   = start;
+  time_t duration = (timeout / 1000);
 
-  while ((now - start) < (timeout * 1000))
+  while ((now - start) < duration)
   {
     err = rtConnection_TimedDispatch(con, timeout);
     if (err != RT_ERROR_TIMEOUT && err != RT_OK)
@@ -469,7 +478,7 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
 rtError
 rtConnection_Dispatch(rtConnection con)
 {
-  return rtConnection_TimedDispatch(con, INT32_MAX);
+  return rtConnection_TimedDispatch(con, -1);
 }
 
 rtError
@@ -494,6 +503,8 @@ rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
   {
     con->state = rtConnectionState_ReadHeaderPreamble;
     err = rtConnection_ReadUntil(con, con->recv_buffer, 4, timeout);
+    if (err == RT_ERROR_TIMEOUT)
+      return err;
 
     if (err == RT_OK)
     {
@@ -504,6 +515,16 @@ rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
 
     if (err == RT_OK)
     {
+      #if 0
+      int i;
+      for (i = 0; i < hdr.header_length; ++i)
+      {
+        if (i %16 == 0)
+          printf("\n");
+        printf("0x%02x ", con->recv_buffer[i]);
+      }
+      printf("\n\n\n");
+      #endif
       err = rtMessageHeader_Decode(&hdr, con->recv_buffer);
     }
 

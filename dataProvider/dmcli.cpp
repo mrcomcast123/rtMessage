@@ -23,6 +23,8 @@
 #include <string>
 #include <cstring>
 
+#include <rtLog.h>
+
 void print_help()
 {
   printf("dmcli [OPTIONS] [COMMAND] [PARAMS]\n");
@@ -113,9 +115,11 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
+  if (verbose)
+    rtLog_SetLevel(RT_LOG_DEBUG);
+
   dmProviderDatabase db(datamodel_dir);
 
-  size_t pos = 0;
   std::string delimiter = ",";
   std::string paramlist(param_list);
   std::string token;
@@ -142,6 +146,7 @@ int main(int argc, char *argv[])
     }
     else
     {
+      // TODO: format results nicely
       dmQueryResult const& results = query->results();
       std::cout << "result_code:" << results.status() << std::endl;
       for (auto const& param: results.values())

@@ -21,6 +21,10 @@
 
 #define RTMSG_DEFAULT_ROUTER_LOCATION "tcp://127.0.0.1:10001"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct _rtConnection;
 typedef struct _rtConnection* rtConnection;
 
@@ -119,4 +123,7 @@ rtConnection_Dispatch(rtConnection con);
 rtError
 rtConnection_TimedDispatch(rtConnection con, int32_t timeout);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

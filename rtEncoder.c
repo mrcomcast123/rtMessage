@@ -15,6 +15,7 @@
 #include "rtEncoder.h"
 #include <arpa/inet.h>
 #include <string.h>
+#include <stdio.h>
 
 rtError
 rtEncoder_EncodeInt32(uint8_t** itr, int32_t n)

@@ -41,7 +41,7 @@ public:
   static dmProviderHost* create();
 
 public:
-  bool registerProvider(std::string const& name, std::unique_ptr<dmProvider> provider);
+  bool registerProvider(std::unique_ptr<dmProvider> provider);
 
 protected:
   virtual bool providerRegistered(std::string const& name) = 0;

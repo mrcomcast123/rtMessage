@@ -16,6 +16,7 @@
 #include <iterator>
 
 dmQueryResult::dmQueryResult()
+  : m_status(0)
 {
 }
 

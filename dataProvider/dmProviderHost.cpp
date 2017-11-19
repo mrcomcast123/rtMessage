@@ -19,12 +19,9 @@
 #include <sstream>
 #include <cstring>
 
-extern "C"
-{
 #include <rtConnection.h>
 #include <rtError.h>
 #include <rtLog.h>
-}
 
 #include "dmUtility.h"
 
@@ -52,20 +49,20 @@ private:
     topic << "RDK.MODEL.";
     topic << name;
     std::string s = topic.str();
-    rtLog_Info("\nRegister for datamodel requests on:%s\n", s.c_str());
 
-    rtError e = rtConnection_AddListener(m_con, s.c_str(),
-        &dmProviderHostImpl::requestHandler, this);
+    rtError e = rtConnection_AddListener(m_con, s.c_str(), &dmProviderHostImpl::requestHandler, this);
+    if (e != RT_OK)
+    {
+      rtLog_Warn("failed to register provider listener. %s", rtStrError(e));
+      return false;
+    }
 
-    rtLog_Info("\n register provider:%s \n", rtStrError(e));
-
-    return e == RT_OK;
+    return true;
   }
 
   void start()
   {
     rtConnection_Create(&m_con, "USE_UNIQUE_NAME_HERE", "tcp://127.0.0.1:10001");
-
     std::unique_lock<std::mutex> lock(m_mutex);
     m_thread.reset(new std::thread(&dmProviderHostImpl::run, this));
   }
@@ -95,17 +92,14 @@ private:
   static void requestHandler(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t n,
     void* closure)
   {
-    int id = 0;
-    printf("\n requestHandler called  with request : %s \n", buff);
-
     if (!rtMessageHeader_IsRequest(hdr))
     {
-      rtLog_Warn("got message that wasn't request in datamodel callback");
+      rtLog_Error("got message that wasn't request in datamodel callback");
+      return;
     }
 
     rtMessage req;
     rtError e = rtMessage_FromBytes(&req, buff, n);
-    rtMessage_GetInt32(req, "id", &id);
 
     if (e != RT_OK)
     {
@@ -132,11 +126,9 @@ private:
       host->doSet(provider_name, params, result);
     }
 
-    // TODO: send response
     rtMessage res;
     rtMessage_Create(&res);
-    rtMessage_SetInt32(res, "id", id);
-    host->encodeResult(&res, result);
+    host->encodeResult(res, result);
     rtConnection_SendResponse(m_con, hdr, res, 1000);
     rtMessage_Destroy(res);
   }
@@ -149,34 +141,27 @@ private:
 
   void decodeGetRequest(rtMessage req, std::string& name, std::vector<dmPropertyInfo>& params)
   {
-    // TODO
-    char* itemstring;
-    uint32_t num;
-    char* propName = new char[50];
-    char* provider = new char[50];
-    char* parameter = new char[50];
-    dmUtility dUtil;
-
-    dmPropertyInfo *dI = new dmPropertyInfo();
+    char* provider_name = nullptr;
+    rtMessage_GetString(req, "provider", &provider_name);
+    if (provider_name)
+      name = provider_name;
 
     rtMessage item;
-    rtMessage_Create(&item);
-    rtMessage_GetString(req, "provider", &provider);
     rtMessage_GetMessage(req, "params", &item);
-    rtMessage_ToString(item, &itemstring, &num);
-    rtLog_Info("\nSub item: \t%.*s", num, itemstring);
 
-    name = strdup(provider);
+    char* property_name;
+    rtMessage_GetString(item, "name", &property_name);
 
-    rtMessage_GetString(item, "name", &propName);
-    dUtil.splitQuery(propName, provider, parameter);
-    std::string property(parameter);
-    dI->setName(parameter);
-    params.push_back(*dI);
+    char* param = new char[256];
+    dmUtility::splitQuery(property_name, provider_name, param);
 
-    delete [] propName;
-    delete [] provider;
-    delete [] parameter;
+    dmPropertyInfo propertyInfo;
+    propertyInfo.setName(param);
+
+    rtMessage_Destroy(item);
+    delete [] param;
+
+    params.push_back(propertyInfo);
   }
 
   void decodeSetRequest(rtMessage req, std::string& name, std::vector<dmNamedValue>& params)
@@ -184,19 +169,23 @@ private:
     // TODO
   }
 
-  void encodeResult(rtMessage* res, dmQueryResult const& result)
+  void encodeResult(rtMessage& res, dmQueryResult const& resultSet)
   {
-    rtMessage_SetInt32(*res, "status", result.status());
-    for (auto vIt = result.values().begin(); vIt != result.values().end(); vIt++)
+    int status_code = resultSet.status();
+    for (auto const& result : resultSet.values())
     {
-      dmValue temp = vIt->Value.value();
-      std::string paramvalue = temp.toString();
-      std::string parameter = vIt->Value.name();
-      rtMessage_SetString(*res, "name", parameter.c_str());
-      rtMessage_SetString(*res, "value", paramvalue.c_str());
-      paramvalue.clear();
-      parameter.clear();
+      if (result.StatusCode != 0 && status_code == 0)
+        status_code = result.StatusCode;
+
+      dmNamedValue const& val = result.Value;
+      rtMessage_SetString(res, "name", val.name().c_str());
+      rtMessage_SetString(res, "value", val.value().toString().c_str());
+
+      // TODO: currently response only handles single value, should handle list
+      break;
     }
+
+    rtMessage_SetInt32(res, "status", status_code);
   }
 
 private:
@@ -215,11 +204,11 @@ dmProviderHost::create()
 }
 
 bool
-dmProviderHost::registerProvider(std::string const& name, std::unique_ptr<dmProvider> provider)
+dmProviderHost::registerProvider(std::unique_ptr<dmProvider> provider)
 {
-  bool b = providerRegistered(name);
+  bool b = providerRegistered(provider->name());
   if (b)
-    m_providers.insert(std::make_pair(name, std::move(provider)));
+    m_providers.insert(std::make_pair(provider->name(), std::move(provider)));
   return b;
 }
 

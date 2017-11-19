@@ -61,10 +61,17 @@
 
 typedef uint32_t rtError;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 const char* rtStrError(rtError e);
 
 rtError rtErrorGetLastError();
 rtError rtErrorFromErrno(int err);
 void    rtErrorSetLastError(rtError e);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

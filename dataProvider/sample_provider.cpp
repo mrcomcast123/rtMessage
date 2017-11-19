@@ -1,85 +1,51 @@
+/* Copyright [2017] [Comcast, Corp.]
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #include "dmProviderHost.h"
 #include "dmProvider.h"
+#include <unistd.h>
 
-#include <memory> 
-#include <cstring>
-
-/*Sample Provider class to supply generic parameters */
-class generalProvider : public dmProvider
+class MyProvider : public dmProvider
 {
 public:
-  generalProvider(std::string providerName)
-  {
-    m_providerName = providerName;
-  }
-
-  ~generalProvider()
-  {
-
-  }
-
-  void doGet(std::vector<dmPropertyInfo> const& params, dmQueryResult& result)
-  {
-    dmQueryResult temp;
-    for (auto const& propInfo : params)
-    {
-      doGet(propInfo, temp);
-      result.merge(temp);
-      temp.clear();
-    }
-  }
-
-  void doSet(std::vector<dmNamedValue> const& params, dmQueryResult& result)
-  {  
-    dmQueryResult temp;
-    for (auto const& value : params)
-    {
-      doSet(value, temp);
-      result.merge(temp);
-      temp.clear();
-    }
-  }
-
-  std::string dummyGet(std::string param)
-  {
-    std::string value;
-    if (strcmp(param.c_str(), "ModelName") == 0)
-      value = "XCAM";
-    else if (strcmp(param.c_str(), "Manufacturer") == 0)
-      value = "Comcast";
-    else
-      value = "DummyValue";
-    return value;
-  } 
-
+  MyProvider(std::string const&  providerName) : dmProvider(providerName) { }
 protected:
   void doGet(dmPropertyInfo const& param, dmQueryResult& result)
   {
-  	result.setStatus(0);
-  	std::string value = dummyGet(param.name());
-  	result.addValue(dmNamedValue(param.name(), dmValue(value)), 1, "Success");
+    if (param.name() == "ModelName")
+    {
+      result.addValue(dmNamedValue(param.name(), "xCam"));
+    }
+    else if (param.name() == "Manufacturer")
+    {
+      result.addValue(dmNamedValue(param.name(), "Comcast"));
+    }
   }
-
-  void doSet(dmNamedValue const& params, dmQueryResult& result)
-  {
-    printf("\n Called dmProvider doSet \n");
-  }
-
-private:
-  std::string m_providerName;
 };
 
 int main()
 {
-  std::string providerName("general");   
-  std::unique_ptr<generalProvider> provider(new generalProvider(providerName));
-  while (1)
-  {  	
-  	dmProviderHost* dmHost = dmProviderHost::create();
-    dmHost->start();  
-    bool status = dmHost->registerProvider(providerName, std::move(provider));
-    dmHost->run();
-    dmHost->stop();    
+  dmProviderHost* host = dmProviderHost::create();
+  host->start();
+
+  host->registerProvider(std::unique_ptr<dmProvider>(new MyProvider("general")));
+
+  while (true)
+  {
+    sleep(1);
   }
-  provider.release();
+
+  host->stop();
+  return 0;
 }

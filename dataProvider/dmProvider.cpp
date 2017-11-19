@@ -16,7 +16,8 @@
 
 #include "dmProvider.h"
 
-dmProvider::dmProvider()
+dmProvider::dmProvider(std::string const& name)
+  : m_name(name)
 {
 }
 
@@ -37,9 +38,8 @@ dmProvider::doGet(std::vector<dmPropertyInfo> const& params, dmQueryResult& resu
 }
 
 void
-dmProvider::doGet(dmPropertyInfo const& param, dmQueryResult& result)
+dmProvider::doGet(dmPropertyInfo const& /*param*/, dmQueryResult& /*result*/)
 {
-
 }
 
 void
@@ -55,7 +55,7 @@ dmProvider::doSet(std::vector<dmNamedValue> const& params, dmQueryResult& result
 }
 
 void
-dmProvider::doSet(dmNamedValue const& param, dmQueryResult& result)
+dmProvider::doSet(dmNamedValue const& /*param*/, dmQueryResult& /*result*/)
 {
 
 }

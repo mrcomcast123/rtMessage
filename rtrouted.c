@@ -315,6 +315,7 @@ rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt)
 {
   size_t i;
   size_t n;
+  int match_found = 0;
 
   for (i = 0, n = rtVector_Size(routes); i < n;)
   {
@@ -322,6 +323,7 @@ rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt)
     rtRouteEntry* route = (rtRouteEntry *) rtVector_At(routes, i);
     if (rtRouted_IsTopicMatch(clnt->header.topic, route->expression))
     {
+      match_found = 1;
       err = route->message_handler(clnt, &clnt->header, clnt->read_buffer +
           clnt->header.header_length, clnt->header.payload_length, route->subscription);
 
@@ -337,6 +339,13 @@ rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt)
 
     if (err == RT_OK)
       i++;
+  }
+
+  if (!match_found)
+  {
+    // TODO: If this is a request, then send message directly back 
+    // to caller
+    rtLog_Error("no client found for match:%s", clnt->header.topic);
   }
 }
 

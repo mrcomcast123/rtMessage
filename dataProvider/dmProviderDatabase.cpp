@@ -26,14 +26,12 @@
 #include <iomanip>
 
 
-extern "C"
-{
 #include "rtConnection.h"
 #include "rtMessage.h"
 #include "rtError.h"
 #include "rtLog.h"
+
 #include <cJSON.h>
-}
 
 #include "dmUtility.h"
 
@@ -42,7 +40,7 @@ class dmQueryImpl : public dmQuery
 public:
   dmQueryImpl()
   {
-    rtConnection_Create(&m_con, "DMCLIENT", "tcp://127.0.0.1:10001");
+    rtConnection_Create(&m_con, "DMCLI", "tcp://127.0.0.1:10001");
   }
 
   ~dmQueryImpl()
@@ -54,56 +52,54 @@ public:
 
   virtual bool exec()
   {
-    if(m_provider.empty())
+    if (m_provider.empty())
+    {
+      rtLog_Warn("trying to execute a query withtout a provider");
       return false;
-
-    char* param = new char[50];
-    char* value = new char[50];
-    int status = 0;
+    }
 
     std::string topic("RDK.MODEL.");
     topic += m_provider;
 
-    rtLog_Info("\nTOPIC TO SEND : %s", topic.c_str());
+    rtLog_Debug("sending dm query on topic:%s", topic.c_str());
 
-    rtLog_SetLevel(RT_LOG_DEBUG);
-
-    /* Send request to provider using rtmessage" */
-    rtMessage res;
     rtMessage req;
     rtMessage_Create(&req);
     rtMessage_SetInt32(req, "id", m_count);
     rtMessage_SetString(req, "method", m_operation.c_str());
     rtMessage_SetString(req, "provider", m_provider.c_str());
+
     rtMessage item;
     rtMessage_Create(&item);
     rtMessage_SetString(item, "name", m_query.c_str());
+
     if (strcmp(m_operation.c_str(), "set") == 0)
       rtMessage_SetString(item, "value", m_value.c_str());
     rtMessage_SetMessage(req, "params", item);
 
+    rtMessage res;
     rtError err = rtConnection_SendRequest(m_con, req, topic.c_str(), &res, 2000);
-    rtLog_Info("\nSendRequest : %s", rtStrError(err));
 
     if (err == RT_OK)
     {
-      /* Receive response and store in dmQueryResult */
-      char* p = NULL;
-      uint32_t len = 0;
+      int status;
+      char* param = nullptr;
+      char* value = nullptr;
 
-      rtMessage_ToString(res, &p, &len);
-      rtMessage_GetString(res, "name", &param);
-      rtMessage_GetString(res, "value", &value);
-      rtMessage_GetInt32(res, "status", &status);
-      std::string parameter(param);
-      std::string paramvalue(value);
-      m_results.addValue(dmNamedValue(parameter, dmValue(paramvalue)), status, "Success");
-      rtLog_Info("\nResponse : %.*s\n", len, p);
-      free(p);
+      if (rtMessage_GetString(res, "name", &param) != RT_OK)
+        rtLog_Error("failed to get 'name' from paramter");
+      if (rtMessage_GetString(res, "value", &value) != RT_OK)
+        rtLog_Error("failed to get 'value' from parameter");
+      if (rtMessage_GetInt32(res, "status", &status) != RT_OK)
+        rtLog_Error("failed to get 'status' from response");
+
+      if (param != nullptr && value != nullptr)
+        m_results.addValue(dmNamedValue(param, dmValue(value)), status);
+
+      rtMessage_Destroy(res);
     }
 
     rtMessage_Destroy(req);
-    rtMessage_Destroy(res);
     reset();
 
     return true;
@@ -140,7 +136,7 @@ public:
         }
         else
         {
-          printf("\nSet operation expects value to be set\n");
+          rtLog_Error("SET operation without value");
           return false;
         }
         break;
@@ -181,24 +177,25 @@ dmProviderDatabase::dmProviderDatabase(std::string const& dir)
 }
 
 void
-dmProviderDatabase::loadFromDir(std::string const& dir)
+dmProviderDatabase::loadFromDir(std::string const& dirname)
 {
-  DIR* directory;
+  DIR* dir;
   struct dirent *ent;
 
-  if ((directory = opendir(m_dataModelDir.c_str())) != NULL) 
+  rtLog_Debug("loading database from directory:%s", dirname.c_str());
+  if ((dir = opendir(m_dataModelDir.c_str())) != NULL)
   {
-     /* Print all the files and directories within directory */
-    while ((ent = readdir(directory)) != NULL) 
+    while ((ent = readdir(dir)) != NULL)
     {
-      if (strcmp(ent->d_name,".")!=0 && strcmp(ent->d_name,"..")!=0 )
-        loadFile(dir.c_str(), ent->d_name);
+      if (strcmp(ent->d_name,".") != 0 && strcmp(ent->d_name,"..") != 0)
+        loadFile(dirname.c_str(), ent->d_name);
     }
-    closedir(directory);
+    closedir(dir);
   } 
   else
   {
-     printf("\n Could not open directory");
+    rtLog_Warn("failed to open directory:%s. %s", dirname.c_str(),
+      strerror(errno));
   }
 }
 
@@ -206,35 +203,31 @@ void
 dmProviderDatabase::loadFile(char const* dir, char const* fname)
 {
   cJSON* json = NULL;
-  char *file = new char[100];
-  
-  std::strcat(file, dir);
-  std::strcat(file, fname);
 
-  std::string root(fname);
-  root.erase(root.length()-5);
+  std::string path = dir;
+  path += "/";
+  path += fname;
 
-  printf("\nRoot %s", root.c_str());
+  rtLog_Debug("load file:%s", path.c_str());
 
-  printf("\nFile %s", file);
+  std::ifstream file;
+  file.open(path.c_str(), std::ifstream::in);
 
-  std::ifstream ifile;
-  ifile.open(file, std::ifstream::in);
-
-  if (ifile.is_open())
+  if (file.is_open())
   {
-    ifile.seekg(0, ifile.end);
-    int length = ifile.tellg();
-    printf("\n Length %d \n", length);
-    ifile.seekg(0, ifile.beg);
+    file.seekg(0, file.end);
+    int length = file.tellg();
+    file.seekg(0, file.beg);
 
-    char *buffer = new char[length];
-    ifile.read(buffer,length);
+    char *buffer = new char[length+ 1];
+    file.read(buffer, length);
+    buffer[length] = '\0';
 
     json = cJSON_Parse(buffer);
     if (!json)
     {
-      printf("\nError before: [%s]\n", cJSON_GetErrorPtr());
+      rtLog_Error("Failed to parse json from:%s. %s", path.c_str(),
+        cJSON_GetErrorPtr());
     }
     else
     {
@@ -254,17 +247,16 @@ dmProviderDatabase::loadFile(char const* dir, char const* fname)
         propertyInfo.setType(dmValueType_fromString(cJSON_GetObjectItem(item, "type")->valuestring));
         providerInfo.addProperty(propertyInfo);
       }
-      m_providerInfo.insert(std::make_pair(root, providerInfo));
+
+      m_providerInfo.insert(std::make_pair(providerInfo.objectName(), providerInfo));
     }
+
     delete [] buffer;
   }
   else
   {
-    printf("\n Cannot open json file");
+    rtLog_Warn("failed to open fie. %s. %s", fname, strerror(errno));
   }
-
-  root.clear();
-  delete [] file;
 }
 
 std::string const
@@ -296,7 +288,7 @@ dmProviderDatabase::getProvider(char const* query)
       {
         if (strcmp(parameter, "") == 0)
         {
-          printf("\nWild Card will be supported in future\n");
+          rtLog_Error("wildcards not supported");
           break;
         }
         else if (strcmp(vec_iter->name().c_str(), parameter) == 0)
@@ -313,12 +305,11 @@ dmProviderDatabase::getProvider(char const* query)
 
   if (!found)
   {
-    printf("\n Parameter not found \n");
+    rtLog_Warn("parameter not found");
     dataProvider = "";
   }
   else
   {
-    printf("\nPROVIDER : %s PARAMETER : %s\n", provider, parameter);
     dataProvider.clear();
     dataProvider = std::string(provider);
   }

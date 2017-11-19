@@ -12,24 +12,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef __DM_UTILITY_H__
-#define __DM_UTILITY_H__
+#ifndef __DM_ERROR_H__
+#define __DM_ERROR_H__
 
+#include <exception>
 #include <string>
 
-class dmUtility
+class dmError : public std::exception
 {
 public:
-  static void splitQuery(char const* query, char* model, char* parameter)
-  {
-    std::string str(query);
-    std::size_t position = str.find_last_of(".\\");
-    model[0]= '\0';
-    std::strcat(model , str.substr(0, position).c_str());
-    parameter[0]= '\0';
-    std::strcat(parameter, str.substr(position+1).c_str());
-    str.clear();
-  }
+  virtual ~dmError() throw();
+
+  virtual char const* what() const throw()
+    { return m_what.c_str(); }
+
+  static void throwError(int code, char const* fmt, ...) __attribute__ ((format (printf, 2, 3)));
+
+private:
+  dmError(int code, std::string const& s);
+
+private:
+  std::string m_what;
+  int m_code;
 };
 
 #endif

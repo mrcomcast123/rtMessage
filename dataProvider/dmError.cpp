@@ -12,24 +12,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef __DM_UTILITY_H__
-#define __DM_UTILITY_H__
+#include "dmError.h"
+#include <stdarg.h>
 
-#include <string>
-
-class dmUtility
+dmError::dmError(int code, std::string const& s)
+  : m_what(s)
+  , m_code(code)
 {
-public:
-  static void splitQuery(char const* query, char* model, char* parameter)
-  {
-    std::string str(query);
-    std::size_t position = str.find_last_of(".\\");
-    model[0]= '\0';
-    std::strcat(model , str.substr(0, position).c_str());
-    parameter[0]= '\0';
-    std::strcat(parameter, str.substr(position+1).c_str());
-    str.clear();
-  }
-};
+}
 
-#endif
+dmError::~dmError()
+{
+}
+
+void
+dmError::throwError(int code, char const* fmt, ...)
+{
+  int const kBufferSize = 256;
+
+  char buff[kBufferSize];
+
+  va_list argp;
+  va_start(argp, fmt);
+  int n = vsnprintf(buff, kBufferSize, fmt, argp);
+  if (n >= kBufferSize)
+    buff[kBufferSize - 1] = '\0';
+  else
+    buff[n] = '\0';
+  va_end(argp);
+
+  throw dmError(code, buff);
+}

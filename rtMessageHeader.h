@@ -15,6 +15,7 @@
 #ifndef __RT_MESSAGE_HEADER_H__
 #define __RT_MESSAGE_HEADER_H__
 
+
 #include "rtError.h"
 #include <stdint.h>
 
@@ -22,6 +23,10 @@
 
 // size of all fields in 
 // #define RTMSG_HEADER_SIZE (24 + (2 * RTMSG_HEADER_MAX_TOPIC_LENGTH))
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum
 {
@@ -49,4 +54,7 @@ rtError rtMessageHeader_Decode(rtMessageHeader* hdr, uint8_t const* buff);
 rtError rtMessageHeader_SetIsRequest(rtMessageHeader* hdr);
 int     rtMessageHeader_IsRequest(rtMessageHeader const* hdr);
 
+#ifdef __cplusplus
+}
+#endif
 #endif
