@@ -28,18 +28,17 @@ class dmProviderDatabase
 {
 public:
   dmProviderDatabase(std::string const& dir);
-  std::string const getProvider(char const* query);
 
-  dmQuery* createQuery();
-  dmQuery* createQuery(dmProviderOperation op, char const* s, const int id);
+  dmQuery* createQuery() const;
+  dmQuery* createQuery(dmProviderOperation op, char const* s) const;
 
 private:
+  char const* getProvider(char const* query) const;
   void loadFromDir(std::string const& dir);
-  void loadFile(char const* dir, char const* fname);
+  void loadFile(std::string const& dir, char const* fname);
 
 private:
-  std::string m_dataModelDir;
-  std::map<std::string, dmProviderInfo> m_providerInfo;
+  std::string m_modelDirectory;
 };
 
 #endif

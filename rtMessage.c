@@ -206,7 +206,7 @@ rtMessage_SetMessage(rtMessage message, char const* name, rtMessage item)
  * @return rtError
  **/
 rtError
-rtMessage_GetString(rtMessage const  message, const char* name, char** value)
+rtMessage_GetString(rtMessage const  message, const char* name, char const** value)
 {
   cJSON* p = cJSON_GetObjectItem(message->json, name);
   if (p)
@@ -270,7 +270,7 @@ rtMessage_GetInt32(rtMessage const message,const char* name, int32_t* value)
  * @return rtError
  **/
 rtError
-rtMessage_GetDouble(rtMessage const  message,const char* name,double* value)
+rtMessage_GetDouble(rtMessage const  message, char const* name,double* value)
 {
   cJSON* p = cJSON_GetObjectItem(message->json, name);
   if (p)

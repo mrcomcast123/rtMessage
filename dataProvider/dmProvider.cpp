@@ -31,7 +31,16 @@ dmProvider::doGet(std::vector<dmPropertyInfo> const& params, dmQueryResult& resu
   dmQueryResult temp;
   for (auto const& propInfo : params)
   {
-    doGet(propInfo, temp);
+    auto itr = m_provider_functions.find(propInfo.name());
+    if ((itr != m_provider_functions.end()) && (itr->second.getter != nullptr))
+    {
+      dmValue val = itr->second.getter();
+      temp.addValue(dmNamedValue(propInfo.name(), val));
+    }
+    else
+    {
+      doGet(propInfo, temp);
+    }
     result.merge(temp);
     temp.clear();
   }
@@ -40,6 +49,7 @@ dmProvider::doGet(std::vector<dmPropertyInfo> const& params, dmQueryResult& resu
 void
 dmProvider::doGet(dmPropertyInfo const& /*param*/, dmQueryResult& /*result*/)
 {
+  // EMPTY: overridden by the user 
 }
 
 void
@@ -48,7 +58,15 @@ dmProvider::doSet(std::vector<dmNamedValue> const& params, dmQueryResult& result
   dmQueryResult temp;
   for (auto const& value : params)
   {
-    doSet(value, temp);
+    auto itr = m_provider_functions.find(value.name());
+    if ((itr != m_provider_functions.end()) && (itr->second.setter != nullptr))
+    {
+      itr->second.setter(value, temp);
+    }
+    else
+    {
+      doSet(value, temp);
+    }
     result.merge(temp);
     temp.clear();
   }
@@ -57,5 +75,42 @@ dmProvider::doSet(std::vector<dmNamedValue> const& params, dmQueryResult& result
 void
 dmProvider::doSet(dmNamedValue const& /*param*/, dmQueryResult& /*result*/)
 {
+  // EMPTY: overridden by the user 
+}
 
+
+// inserts function callback
+void
+dmProvider::onGet(std::string const& propertyName, getter_function func)
+{
+  auto itr = m_provider_functions.find(propertyName);
+  if (itr != m_provider_functions.end())
+  {
+    itr->second.getter = func;
+  }
+  else
+  {
+    provider_functions funcs;
+    funcs.setter = nullptr;
+    funcs.getter = func;
+    m_provider_functions.insert(std::make_pair(propertyName, funcs));
+  }
+}
+
+// inserts function callback
+void
+dmProvider::onSet(std::string const& propertyName, setter_function func)
+{
+  auto itr = m_provider_functions.find(propertyName);
+  if (itr != m_provider_functions.end())
+  {
+    itr->second.setter = func;
+  }
+  else
+  {
+    provider_functions funcs;
+    funcs.setter = func;
+    funcs.getter = nullptr;
+    m_provider_functions.insert(std::make_pair(propertyName, funcs));
+  }
 }

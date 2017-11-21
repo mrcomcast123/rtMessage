@@ -17,6 +17,8 @@
 
 #include "dmPropertyInfo.h"
 #include "dmQueryResult.h"
+
+#include <map>
 #include <vector>
 
 class dmProvider
@@ -35,8 +37,23 @@ protected:
   virtual void doGet(dmPropertyInfo const& param, dmQueryResult& result);
   virtual void doSet(dmNamedValue const& param, dmQueryResult& result);
 
+  using getter_function = std::function<dmValue (void)>;
+  using setter_function = std::function<void (dmNamedValue const& value, dmQueryResult& result)>;
+
+  void onGet(std::string const& propertyName, getter_function func);
+  void onSet(std::string const& propertyName, setter_function func);
+
 protected:
   std::string m_name;
+
+private:
+  struct provider_functions
+  {
+    getter_function getter;
+    setter_function setter;
+  };
+
+  std::map< std::string, provider_functions > m_provider_functions;
 };
 
 #endif

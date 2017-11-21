@@ -97,7 +97,7 @@ rtRouted_PrintHelp()
 }
 
 static rtError
-rtRouted_AddRoute(rtRouteMessageHandler handler, char* exp, rtSubscription* subscription)
+rtRouted_AddRoute(rtRouteMessageHandler handler, char const* exp, rtSubscription* subscription)
 {
   rtRouteEntry* route = (rtRouteEntry *) malloc(sizeof(rtRouteEntry));
   route->subscription = subscription;
@@ -221,7 +221,7 @@ rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t cons
 
   if (strcmp(hdr->topic, "_RTROUTED.INBOX.SUBSCRIBE") == 0)
   {
-    char* expression = NULL;
+    char const* expression = NULL;
     int32_t route_id = 0;
 
     rtMessage m;
@@ -238,7 +238,7 @@ rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t cons
   }
   else if (strcmp(hdr->topic, "_RTROUTED.INBOX.HELLO") == 0)
   {
-    char* inbox = NULL;
+    char const* inbox = NULL;
 
     rtMessage m;
     rtMessage_FromBytes(&m, buff, n);

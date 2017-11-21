@@ -35,10 +35,23 @@
 
 #include "dmUtility.h"
 
+namespace
+{
+  std::map<std::string, cJSON*> modelInfoDB;
+
+  bool matches_object(char const* query, char const* obj)
+  {
+    char const* p = strrchr(query, '.');
+    int n = static_cast<int>((intptr_t) p - (intptr_t) query);
+    return strncmp(query, obj, n) == 0;
+  }
+}
+
 class dmQueryImpl : public dmQuery
 {
 public:
   dmQueryImpl()
+    : m_provider_name(nullptr)
   {
     rtConnection_Create(&m_con, "DMCLI", "tcp://127.0.0.1:10001");
   }
@@ -46,28 +59,26 @@ public:
   ~dmQueryImpl()
   {
     rtConnection_Destroy(m_con);
-    m_results.clear();
-    reset();
   }
 
   virtual bool exec()
   {
-    if (m_provider.empty())
+    if (!m_provider_name)
     {
       rtLog_Warn("trying to execute a query withtout a provider");
       return false;
     }
 
     std::string topic("RDK.MODEL.");
-    topic += m_provider;
+    topic += m_provider_name;
 
     rtLog_Debug("sending dm query on topic:%s", topic.c_str());
 
     rtMessage req;
     rtMessage_Create(&req);
-    rtMessage_SetInt32(req, "id", m_count);
+//    rtMessage_SetInt32(req, "id", m_count);
     rtMessage_SetString(req, "method", m_operation.c_str());
-    rtMessage_SetString(req, "provider", m_provider.c_str());
+    rtMessage_SetString(req, "provider", m_provider_name);
 
     rtMessage item;
     rtMessage_Create(&item);
@@ -83,8 +94,8 @@ public:
     if (err == RT_OK)
     {
       int status;
-      char* param = nullptr;
-      char* value = nullptr;
+      char const* param = nullptr;
+      char const* value = nullptr;
 
       if (rtMessage_GetString(res, "name", &param) != RT_OK)
         rtLog_Error("failed to get 'name' from paramter");
@@ -109,9 +120,9 @@ public:
   {
     m_operation.clear();
     m_query.clear();
-    m_provider.clear();
+    m_provider_name = nullptr;
     m_value.clear();
-    m_count = 0;
+    // m_count = 0;
   }
 
   virtual bool setQueryString(dmProviderOperation op, char const* s)
@@ -150,28 +161,25 @@ public:
     return m_results;
   }
 
-  virtual void setProviderName(std::string provider)
+  void setProviderName(char const* provider_name)
   {
-    m_provider = provider;
-  }
-
-  virtual void setID(int count)
-  {
-    m_count = count;
+    m_provider_name = provider_name;
   }
 
 private:
   rtConnection m_con;
   dmQueryResult m_results;
   std::string m_query;
-  std::string m_provider;
   std::string m_value;
   std::string m_operation;
-  int m_count;
+  char const* m_provider_name;
+
+  // TODO: int m_count;
+  // should use static counter or other way to inject json-rpc request/id
 };
 
 dmProviderDatabase::dmProviderDatabase(std::string const& dir)
-  : m_dataModelDir(dir)
+  : m_modelDirectory(dir)
 {
   loadFromDir(dir);
 }
@@ -183,7 +191,7 @@ dmProviderDatabase::loadFromDir(std::string const& dirname)
   struct dirent *ent;
 
   rtLog_Debug("loading database from directory:%s", dirname.c_str());
-  if ((dir = opendir(m_dataModelDir.c_str())) != NULL)
+  if ((dir = opendir(dirname.c_str())) != NULL)
   {
     while ((ent = readdir(dir)) != NULL)
     {
@@ -200,10 +208,8 @@ dmProviderDatabase::loadFromDir(std::string const& dirname)
 }
 
 void
-dmProviderDatabase::loadFile(char const* dir, char const* fname)
+dmProviderDatabase::loadFile(std::string const& dir, char const* fname)
 {
-  cJSON* json = NULL;
-
   std::string path = dir;
   path += "/";
   path += fname;
@@ -212,133 +218,64 @@ dmProviderDatabase::loadFile(char const* dir, char const* fname)
 
   std::ifstream file;
   file.open(path.c_str(), std::ifstream::in);
-
-  if (file.is_open())
+  if (!file.is_open())
   {
-    file.seekg(0, file.end);
-    int length = file.tellg();
-    file.seekg(0, file.beg);
+    rtLog_Warn("failed to open fie. %s. %s", fname, strerror(errno));
+    return;
+  }
 
-    char *buffer = new char[length+ 1];
-    file.read(buffer, length);
-    buffer[length] = '\0';
+  file.seekg(0, file.end);
+  int length = file.tellg();
+  file.seekg(0, file.beg);
 
-    json = cJSON_Parse(buffer);
-    if (!json)
-    {
-      rtLog_Error("Failed to parse json from:%s. %s", path.c_str(),
-        cJSON_GetErrorPtr());
-    }
-    else
-    {
-      dmProviderInfo providerInfo;
-      providerInfo.setProviderName(cJSON_GetObjectItem(json, "provider")->valuestring);
-      providerInfo.setObjectName(cJSON_GetObjectItem(json, "name")->valuestring);
+  std::vector<char> buff(length + 1, '\0');
+  file.read(buff.data(), length);
 
-      cJSON *props = cJSON_GetObjectItem(json, "properties"); 
-      for (int i = 0, n = cJSON_GetArraySize(props); i < n; ++i)
-      {
-        cJSON* item = cJSON_GetArrayItem(props, i);
-
-        dmPropertyInfo propertyInfo;
-        propertyInfo.setName(cJSON_GetObjectItem(item, "name")->valuestring);
-        propertyInfo.setIsOptional(cJSON_IsTrue(cJSON_GetObjectItem(item, "optional")));
-        propertyInfo.setIsWritable(cJSON_IsTrue(cJSON_GetObjectItem(item, "writable")));
-        propertyInfo.setType(dmValueType_fromString(cJSON_GetObjectItem(item, "type")->valuestring));
-        providerInfo.addProperty(propertyInfo);
-      }
-
-      m_providerInfo.insert(std::make_pair(providerInfo.objectName(), providerInfo));
-    }
-
-    delete [] buffer;
+  cJSON* json = cJSON_Parse(buff.data());
+  if (!json)
+  {
+    rtLog_Error("Failed to parse json from:%s. %s", path.c_str(), cJSON_GetErrorPtr());
   }
   else
   {
-    rtLog_Warn("failed to open fie. %s. %s", fname, strerror(errno));
+    cJSON* name = cJSON_GetObjectItem(json, "name");
+    modelInfoDB.insert(std::make_pair(name->valuestring, json));
   }
 }
 
-std::string const
-dmProviderDatabase::getProvider(char const* query)
+char const*
+dmProviderDatabase::getProvider(char const* query) const
 {
-  char* model = new char[100];
-  char* parameter = new char[50];
-  char* provider = new char[50];
-  int found = 0;
-  std::vector<dmPropertyInfo> getInfo;
-  dmUtility dUtil;
-  dUtil.splitQuery(query, model, parameter);
-  std::string dataProvider;
-
-  std::string data(parameter);
-  if (data.find("=") != std::string::npos)
+  for (auto itr : modelInfoDB)
   {
-    std::size_t position = data.find("=");
-    std::string param = data.substr(0, position);
-    strcpy(parameter, param.c_str());
-  }
-
-  for (auto map_iter = m_providerInfo.cbegin() ; map_iter != m_providerInfo.cend() ; map_iter++)
-  {
-    for (auto vec_iter = map_iter->second.properties().cbegin(); vec_iter != map_iter->second.properties().cend() ; vec_iter++)
+    if (matches_object(itr.first.c_str(), query))
     {
-      dmPropertyInfo* dI = new dmPropertyInfo();
-      if (strcmp(map_iter->first.c_str(), model) == 0)
-      {
-        if (strcmp(parameter, "") == 0)
-        {
-          rtLog_Error("wildcards not supported");
-          break;
-        }
-        else if (strcmp(vec_iter->name().c_str(), parameter) == 0)
-        {
-          dI->setName(parameter);
-          provider = strdup(map_iter->second.providerName().c_str());
-          getInfo.push_back(*dI);
-          found = 1;
-        }
-      }
-      delete(dI);
+      cJSON* obj = cJSON_GetObjectItem(itr.second, "provider");
+      return obj->valuestring;
     }
   }
 
-  if (!found)
-  {
-    rtLog_Warn("parameter not found");
-    dataProvider = "";
-  }
-  else
-  {
-    dataProvider.clear();
-    dataProvider = std::string(provider);
-  }
-
-  delete [] parameter;
-  delete [] model;
-  delete [] provider;
-  provider = NULL;
-  return dataProvider;
+  return nullptr;
 }
 
 dmQuery*
-dmProviderDatabase::createQuery()
+dmProviderDatabase::createQuery() const
 {
   return new dmQueryImpl();
 }
 
 dmQuery* 
-dmProviderDatabase::createQuery(dmProviderOperation op, char const* s, const int id)
+dmProviderDatabase::createQuery(dmProviderOperation op, char const* query_string) const
 {
-  dmQuery* q = new dmQueryImpl();
-  std::string provider = getProvider(s);
-
-  if (!provider.empty())
+  char const* provider_name = getProvider(query_string);
+  if (!provider_name)
   {
-    static_cast<dmQueryImpl*>(q)->setID(id);
-    bool status = q->setQueryString(op, s);
-    if(status)
-      static_cast<dmQueryImpl*>(q)->setProviderName(provider);
+    rtLog_Warn("failed to find provider for query string:%s", query_string);
+    return nullptr;
   }
-  return q;
+
+  dmQueryImpl* query = new dmQueryImpl();
+  query->setQueryString(op, query_string);
+  query->setProviderName(provider_name);
+  return query;
 }

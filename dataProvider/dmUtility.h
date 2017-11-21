@@ -20,14 +20,13 @@
 class dmUtility
 {
 public:
-  static void splitQuery(char const* query, char* model, char* parameter)
+  static void splitQuery(char const* query, char* parameter)
   {
     std::string str(query);
     std::size_t position = str.find_last_of(".\\");
-    model[0]= '\0';
-    std::strcat(model , str.substr(0, position).c_str());
+
     parameter[0]= '\0';
-    std::strcat(parameter, str.substr(position+1).c_str());
+    std::strcat(parameter, str.substr(position + 1).c_str());
     str.clear();
   }
 };

@@ -39,7 +39,7 @@ rtMessage_Create(rtMessage* message);
  * @return rtError
  */
 rtError
-rtMessage_Clone(const rtMessage message, rtMessage* copy);
+rtMessage_Clone(rtMessage const message, rtMessage* copy);
 
 /* Allocates storage and initializes it as new message
  * @param pointer to the new message
@@ -125,7 +125,7 @@ rtMessage_SetMessage(rtMessage message, char const* name, rtMessage item);
  * @return rtError
  **/
 rtError
-rtMessage_GetString(rtMessage const m, char const* name, char** value);
+rtMessage_GetString(rtMessage const m, char const* name, char const** value);
 
 /**
  * Get field value of type string using field name.

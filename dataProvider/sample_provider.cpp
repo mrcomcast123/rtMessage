@@ -19,17 +19,30 @@
 class MyProvider : public dmProvider
 {
 public:
-  MyProvider(std::string const&  providerName) : dmProvider(providerName) { }
-protected:
-  void doGet(dmPropertyInfo const& param, dmQueryResult& result)
+  MyProvider(std::string const& providerName) : dmProvider(providerName)
   {
-    if (param.name() == "ModelName")
+    // use lambda for simple stuff
+    onGet("ModelName", []() -> dmValue {
+      return "xCam";
+    });
+
+    // can use member function
+    onGet("Manufacturer", std::bind(&MyProvider::getManufacturer, this));
+  }
+
+private:
+  dmValue getManufacturer()
+  {
+    return "Comcast";
+  }
+
+protected:
+  // override the basic get and use ladder if/else
+  virtual void doGet(dmPropertyInfo const& param, dmQueryResult& result)
+  {
+    if (param.name() == "SerialNumber")
     {
-      result.addValue(dmNamedValue(param.name(), "xCam"));
-    }
-    else if (param.name() == "Manufacturer")
-    {
-      result.addValue(dmNamedValue(param.name(), "Comcast"));
+      result.addValue(dmNamedValue(param.name(), 12345));
     }
   }
 };

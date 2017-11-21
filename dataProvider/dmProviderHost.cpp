@@ -141,7 +141,7 @@ private:
 
   void decodeGetRequest(rtMessage req, std::string& name, std::vector<dmPropertyInfo>& params)
   {
-    char* provider_name = nullptr;
+    char const* provider_name = nullptr;
     rtMessage_GetString(req, "provider", &provider_name);
     if (provider_name)
       name = provider_name;
@@ -149,11 +149,11 @@ private:
     rtMessage item;
     rtMessage_GetMessage(req, "params", &item);
 
-    char* property_name;
+    char const* property_name;
     rtMessage_GetString(item, "name", &property_name);
 
     char* param = new char[256];
-    dmUtility::splitQuery(property_name, provider_name, param);
+    dmUtility::splitQuery(property_name, param);
 
     dmPropertyInfo propertyInfo;
     propertyInfo.setName(param);

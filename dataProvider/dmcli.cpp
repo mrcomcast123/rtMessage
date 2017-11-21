@@ -123,7 +123,6 @@ int main(int argc, char *argv[])
   std::string delimiter = ",";
   std::string paramlist(param_list);
   std::string token;
-  int id = 0;
 
   size_t begin = 0;
   size_t end = 0;
@@ -138,7 +137,7 @@ int main(int argc, char *argv[])
       return ::isspace(c);
     }), token.end());
 
-    std::unique_ptr<dmQuery> query(db.createQuery(op, token.c_str(), id++));
+    std::unique_ptr<dmQuery> query(db.createQuery(op, token.c_str()));
 
     if (!query->exec())
     {
