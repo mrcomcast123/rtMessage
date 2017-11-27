@@ -16,8 +16,7 @@
 
 #include "dmProvider.h"
 
-dmProvider::dmProvider(std::string const& name)
-  : m_name(name)
+dmProvider::dmProvider()
 {
 }
 

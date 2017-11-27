@@ -30,6 +30,7 @@ class dmProviderHostImpl : public dmProviderHost
 public:
   dmProviderHostImpl()
   {
+
   }
 
   virtual ~dmProviderHostImpl()
@@ -136,7 +137,12 @@ private:
   dmProviderOperation decodeOperation(rtMessage req)
   {
     // TODO:
-    return dmProviderOperation_Get;
+    char const* operation = nullptr;
+    rtMessage_GetString(req, "method", &operation);
+    if ((strcmp(operation, "set") == 0))
+      return dmProviderOperation_Set;
+    else
+      return dmProviderOperation_Get;
   }
 
   void decodeGetRequest(rtMessage req, std::string& name, std::vector<dmPropertyInfo>& params)
@@ -167,6 +173,29 @@ private:
   void decodeSetRequest(rtMessage req, std::string& name, std::vector<dmNamedValue>& params)
   {
     // TODO
+    char const* provider_name = nullptr;
+    rtMessage_GetString(req, "provider", &provider_name);
+    if (provider_name)
+      name = provider_name;
+
+    rtMessage item;
+    rtMessage_GetMessage(req, "params", &item);
+
+    char const* property_name;
+    rtMessage_GetString(item, "name", &property_name);
+
+    char* param = new char[256];
+    dmUtility::splitQuery(property_name, param);
+
+    char const* property_value;
+    rtMessage_GetString(item, "value", &property_value);
+
+    dmNamedValue namedValue(param, property_value);
+
+    rtMessage_Destroy(item);
+    delete [] param;
+
+    params.push_back(namedValue);
   }
 
   void encodeResult(rtMessage& res, dmQueryResult const& resultSet)
@@ -204,11 +233,12 @@ dmProviderHost::create()
 }
 
 bool
-dmProviderHost::registerProvider(std::unique_ptr<dmProvider> provider)
+dmProviderHost::registerProvider(char const* object, std::unique_ptr<dmProvider> provider)
 {
-  bool b = providerRegistered(provider->name());
+  m_providername = db->getProviderFromObject(object);
+  bool b = providerRegistered(m_providername);
   if (b)
-    m_providers.insert(std::make_pair(provider->name(), std::move(provider)));
+    m_providers.insert(std::make_pair(m_providername, std::move(provider)));
   return b;
 }
 

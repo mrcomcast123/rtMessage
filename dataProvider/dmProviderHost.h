@@ -17,6 +17,7 @@
 
 #include "dmPropertyInfo.h"
 #include "dmQueryResult.h"
+#include "dmProviderDatabase.h"
 
 #include <map>
 #include <memory>
@@ -27,12 +28,32 @@
 
 class dmProvider;
 class dmPropertyInfo;
+class dmProviderDatabase;
 
 class dmProviderHost
 {
 public:
-  dmProviderHost() { }
-  virtual ~dmProviderHost() { }
+  dmProviderHost()
+  {
+    #ifdef DEFAULT_DATAMODELDIR
+    std::string datamodel_dir = DEFAULT_DATAMODELDIR;
+    #else
+    std::string datamode_dir;
+    #endif
+
+    db = new dmProviderDatabase(datamodel_dir);
+  }
+
+  virtual ~dmProviderHost()
+  {
+    if (db)
+    {
+      delete db;
+      db = NULL;
+    }
+    m_providername.clear();
+  }
+
   virtual void start() = 0;
   virtual void stop() = 0;
   virtual void run() = 0;
@@ -41,7 +62,7 @@ public:
   static dmProviderHost* create();
 
 public:
-  bool registerProvider(std::unique_ptr<dmProvider> provider);
+  bool registerProvider(char const* object, std::unique_ptr<dmProvider> provider);
 
 protected:
   virtual bool providerRegistered(std::string const& name) = 0;
@@ -54,6 +75,8 @@ protected:
 
 private:
   std::map< std::string, std::unique_ptr<dmProvider> > m_providers;
+  dmProviderDatabase* db;
+  std::string m_providername;
 };
 
 #endif

@@ -19,7 +19,7 @@
 class MyProvider : public dmProvider
 {
 public:
-  MyProvider(std::string const& providerName) : dmProvider(providerName)
+  MyProvider()
   {
     // use lambda for simple stuff
     onGet("ModelName", []() -> dmValue {
@@ -28,12 +28,23 @@ public:
 
     // can use member function
     onGet("Manufacturer", std::bind(&MyProvider::getManufacturer, this));
+    onGet("X_RDKCENTRAL-COM_NoiseLevel", std::bind(&MyProvider::getNoiseLevel, this));
   }
 
 private:
   dmValue getManufacturer()
   {
     return "Comcast";
+  }
+
+  dmValue getNoiseLevel()
+  {
+    return "10dB";
+  }
+
+  void setManufacturer(const std::string& name, const std::string& value)
+  {
+    printf("\nSet %s as %s\n", name.c_str(), value.c_str());
   }
 
 protected:
@@ -44,6 +55,21 @@ protected:
     {
       result.addValue(dmNamedValue(param.name(), 12345));
     }
+    else
+    {
+      printf("\n Yet to implement get for param %s", param.name().c_str());
+    }
+  }
+
+  virtual void doSet(dmNamedValue const& param, dmQueryResult& result)
+  {
+    if (param.name() == "Manufacturer")
+    {
+      setManufacturer(param.name(), param.value().toString());
+      result.addValue(dmNamedValue(param.name(), param.value()));
+    }
+    else
+      result.addValue(dmNamedValue(param.name(), param.value()));
   }
 };
 
@@ -52,7 +78,8 @@ int main()
   dmProviderHost* host = dmProviderHost::create();
   host->start();
 
-  host->registerProvider(std::unique_ptr<dmProvider>(new MyProvider("general")));
+  //host->registerProvider(std::unique_ptr<dmProvider>(new MyProvider("general")));
+  host->registerProvider("Device.DeviceInfo", std::unique_ptr<dmProvider>(new MyProvider()));
 
   while (true)
   {

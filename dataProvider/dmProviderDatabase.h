@@ -31,12 +31,12 @@ public:
 
   dmQuery* createQuery() const;
   dmQuery* createQuery(dmProviderOperation op, char const* s) const;
+  char const* getProviderFromObject(char const* object) const;
 
 private:
   char const* getProvider(char const* query) const;
   void loadFromDir(std::string const& dir);
   void loadFile(std::string const& dir, char const* fname);
-
 private:
   std::string m_modelDirectory;
 };

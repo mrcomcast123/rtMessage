@@ -24,7 +24,7 @@
 class dmProvider
 {
 public:
-  dmProvider(std::string const& name);
+  dmProvider();
   virtual ~dmProvider();
 
   inline std::string const& name() const

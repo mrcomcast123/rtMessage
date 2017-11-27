@@ -246,15 +246,28 @@ dmProviderDatabase::loadFile(std::string const& dir, char const* fname)
 char const*
 dmProviderDatabase::getProvider(char const* query) const
 {
+  for (auto iter : modelInfoDB)
+  {
+    if (matches_object(query, iter.first.c_str()))
+    {
+      cJSON* obj = cJSON_GetObjectItem(iter.second, "provider");
+      return obj->valuestring;
+    }
+  }
+  return nullptr;
+}
+
+char const*
+dmProviderDatabase::getProviderFromObject(char const* object) const
+{
   for (auto itr : modelInfoDB)
   {
-    if (matches_object(itr.first.c_str(), query))
+    if (strcmp(itr.first.c_str(), object) == 0)
     {
       cJSON* obj = cJSON_GetObjectItem(itr.second, "provider");
       return obj->valuestring;
     }
   }
-
   return nullptr;
 }
 
