@@ -18,6 +18,7 @@
 
 #include <sstream>
 #include <cstring>
+#include <iostream>
 
 #include <rtConnection.h>
 #include <rtError.h>
@@ -136,7 +137,6 @@ private:
 
   dmProviderOperation decodeOperation(rtMessage req)
   {
-    // TODO:
     char const* operation = nullptr;
     rtMessage_GetString(req, "method", &operation);
     if ((strcmp(operation, "set") == 0))
@@ -158,21 +158,20 @@ private:
     char const* property_name;
     rtMessage_GetString(item, "name", &property_name);
 
+    std::string param_name(property_name);
+    dmPropertyInfo propertyInfo;
+
     char* param = new char[256];
     dmUtility::splitQuery(property_name, param);
-
-    dmPropertyInfo propertyInfo;
     propertyInfo.setName(param);
-
-    rtMessage_Destroy(item);
+    params.push_back(propertyInfo);
     delete [] param;
 
-    params.push_back(propertyInfo);
+    rtMessage_Destroy(item);
   }
 
   void decodeSetRequest(rtMessage req, std::string& name, std::vector<dmNamedValue>& params)
   {
-    // TODO
     char const* provider_name = nullptr;
     rtMessage_GetString(req, "provider", &provider_name);
     if (provider_name)

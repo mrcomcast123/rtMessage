@@ -49,7 +49,7 @@ public:
     if (db)
     {
       delete db;
-      db = NULL;
+      db = nullptr;
     }
     m_providername.clear();
   }
@@ -75,8 +75,8 @@ protected:
 
 private:
   std::map< std::string, std::unique_ptr<dmProvider> > m_providers;
-  dmProviderDatabase* db;
   std::string m_providername;
+  dmProviderDatabase* db;
 };
 
 #endif

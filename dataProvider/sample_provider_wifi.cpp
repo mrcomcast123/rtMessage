@@ -22,27 +22,21 @@ public:
   MyProvider()
   {
     // use lambda for simple stuff
-    onGet("ModelName", []() -> dmValue {
-      return "xCam";
+    onGet("X_RDKCENTRAL-COM_IPv4Address", []() -> dmValue {
+      return "127.0.0.1";
     });
 
     // can use member function
-    onGet("Manufacturer", std::bind(&MyProvider::getManufacturer, this));
     onGet("X_RDKCENTRAL-COM_NoiseLevel", std::bind(&MyProvider::getNoiseLevel, this));
   }
 
 private:
-  dmValue getManufacturer()
-  {
-    return "Comcast";
-  }
-
   dmValue getNoiseLevel()
   {
     return "10dB";
   }
 
-  void setManufacturer(const std::string& name, const std::string& value)
+  void setNoiseLevel(const std::string& name, const std::string& value)
   {
     printf("\nSet %s as %s\n", name.c_str(), value.c_str());
   }
@@ -51,21 +45,22 @@ protected:
   // override the basic get and use ladder if/else
   virtual void doGet(dmPropertyInfo const& param, dmQueryResult& result)
   {
-    if (param.name() == "SerialNumber")
+    if (param.name() == "X_RDKCENTRAL-COM_UserName")
     {
-      result.addValue(dmNamedValue(param.name(), 12345));
+      result.addValue(dmNamedValue(param.name(), "xcam_user"));
     }
     else
     {
-      printf("\n Yet to implement get for param %s", param.name().c_str());
+      printf("\n Yet to implement get for param %s\n", param.name().c_str());
+      result.addValue(dmNamedValue(param.name(), "dummy"));
     }
   }
 
   virtual void doSet(dmNamedValue const& param, dmQueryResult& result)
   {
-    if (param.name() == "Manufacturer")
+    if (param.name() == "X_RDKCENTRAL-COM_NoiseLevel")
     {
-      setManufacturer(param.name(), param.value().toString());
+      setNoiseLevel(param.name(), param.value().toString());
       result.addValue(dmNamedValue(param.name(), param.value()));
     }
     else
@@ -78,8 +73,7 @@ int main()
   dmProviderHost* host = dmProviderHost::create();
   host->start();
 
-  //host->registerProvider(std::unique_ptr<dmProvider>(new MyProvider("general")));
-  host->registerProvider("Device.DeviceInfo", std::unique_ptr<dmProvider>(new MyProvider()));
+  host->registerProvider("Device.WiFi", std::unique_ptr<dmProvider>(new MyProvider()));
 
   while (true)
   {

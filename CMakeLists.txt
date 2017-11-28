@@ -122,11 +122,18 @@ if (BUILD_DMCLI)
 endif (BUILD_DMCLI)
 
 if (BUILD_DMCLI_SAMPLE_APP)
-    add_executable(sample_provider dataProvider/sample_provider.cpp)
+    # sample provider for general
+    add_executable(sample_provider_gen dataProvider/sample_provider_gen.cpp)
     if (BUILD_FOR_DESKTOP)
-      add_dependencies(sample_provider dataProvider)
+      add_dependencies(sample_provider_gen dataProvider)
     endif (BUILD_FOR_DESKTOP)
-    target_link_libraries(sample_provider ${LIBRARY_LINKER_OPTIONS} rtMessage dataProvider)
+    target_link_libraries(sample_provider_gen ${LIBRARY_LINKER_OPTIONS} rtMessage dataProvider)
+    # sample provider for wifi
+    add_executable(sample_provider_wifi dataProvider/sample_provider_wifi.cpp)
+    if (BUILD_FOR_DESKTOP)
+      add_dependencies(sample_provider_wifi dataProvider)
+    endif (BUILD_FOR_DESKTOP)
+    target_link_libraries(sample_provider_wifi ${LIBRARY_LINKER_OPTIONS} rtMessage dataProvider)
 endif (BUILD_DMCLI_SAMPLE_APP)
 
 if (BUILD_RTMESSAGE_SAMPLE_APP)

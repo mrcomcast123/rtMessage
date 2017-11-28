@@ -29,6 +29,11 @@ public:
     std::strcat(parameter, str.substr(position + 1).c_str());
     str.clear();
   }
+
+  static bool has_suffix(const std::string &str, const std::string &suffix)
+  {
+    return str.size() >= suffix.size() && str.find(suffix, str.size() - suffix.size()) != str.npos;
+  }
 };
 
 #endif

@@ -54,43 +54,40 @@ public:
     : m_provider_name(nullptr)
   {
     rtConnection_Create(&m_con, "DMCLI", "tcp://127.0.0.1:10001");
+
+    #ifdef DEFAULT_DATAMODELDIR
+    std::string datamodel_dir = DEFAULT_DATAMODELDIR;
+    #else
+    std::string datamode_dir;
+    #endif
+
+    db = new dmProviderDatabase(datamodel_dir);
   }
 
   ~dmQueryImpl()
   {
     rtConnection_Destroy(m_con);
+    if (db)
+    {
+      delete db;
+      db = nullptr;
+    }
   }
 
-  virtual bool exec()
+  void dmRequestResponse(std::string& topic, std::string& parameter)
   {
-    if (!m_provider_name)
-    {
-      rtLog_Warn("trying to execute a query withtout a provider");
-      return false;
-    }
-
-    std::string topic("RDK.MODEL.");
-    topic += m_provider_name;
-
-    rtLog_Debug("sending dm query on topic:%s", topic.c_str());
-
     rtMessage req;
     rtMessage_Create(&req);
-//    rtMessage_SetInt32(req, "id", m_count);
     rtMessage_SetString(req, "method", m_operation.c_str());
     rtMessage_SetString(req, "provider", m_provider_name);
-
     rtMessage item;
     rtMessage_Create(&item);
-    rtMessage_SetString(item, "name", m_query.c_str());
-
+    rtMessage_SetString(item, "name", parameter.c_str());
     if (strcmp(m_operation.c_str(), "set") == 0)
       rtMessage_SetString(item, "value", m_value.c_str());
     rtMessage_SetMessage(req, "params", item);
-
     rtMessage res;
     rtError err = rtConnection_SendRequest(m_con, req, topic.c_str(), &res, 2000);
-
     if (err == RT_OK)
     {
       int status;
@@ -106,13 +103,40 @@ public:
 
       if (param != nullptr && value != nullptr)
         m_results.addValue(dmNamedValue(param, dmValue(value)), status);
-
       rtMessage_Destroy(res);
+      rtMessage_Destroy(req);
+    }
+  }
+
+  virtual bool exec()
+  {
+    if (!m_provider_name)
+    {
+      rtLog_Warn("trying to execute a query withtout a provider");
+      return false;
     }
 
-    rtMessage_Destroy(req);
-    reset();
+    std::string topic("RDK.MODEL.");
+    topic += m_provider_name;
 
+    rtLog_Debug("sending dm query on topic:%s", topic.c_str());
+
+    if (dmUtility::has_suffix(m_query, "."))
+    {
+      std::vector<char const*> parameters = db->getParameters(m_provider_name);
+      for (auto itr : parameters)
+      {
+        std::string param(itr);
+        std::string fullparam = m_query + param;
+        dmRequestResponse(topic, fullparam);
+      }
+    }
+    else
+    {
+      dmRequestResponse(topic, m_query);
+    }
+
+    reset();
     return true;
   }
 
@@ -173,6 +197,7 @@ private:
   std::string m_value;
   std::string m_operation;
   char const* m_provider_name;
+  dmProviderDatabase *db;
 
   // TODO: int m_count;
   // should use static counter or other way to inject json-rpc request/id
@@ -271,6 +296,28 @@ dmProviderDatabase::getProviderFromObject(char const* object) const
   return nullptr;
 }
 
+std::vector<char const*>
+dmProviderDatabase::getParameters(char const* provider) const
+{
+  std::vector<char const*> parameters;
+  for (auto itr : modelInfoDB)
+  {
+    cJSON* objProv = cJSON_GetObjectItem(itr.second, "provider");
+    std::string objectProvider = objProv->valuestring;
+    if (strcmp(objectProvider.c_str(), provider) == 0)
+    {
+      cJSON *properties = cJSON_GetObjectItem(itr.second, "properties");
+      for (int i = 0 ; i < cJSON_GetArraySize(properties); i++)
+      {
+        cJSON *subitem = cJSON_GetArrayItem(properties, i);
+        cJSON* obj = cJSON_GetObjectItem(subitem, "name");
+        parameters.push_back(obj->valuestring);
+      }
+    }
+  }
+  return parameters;
+}
+
 dmQuery*
 dmProviderDatabase::createQuery() const
 {
@@ -280,7 +327,18 @@ dmProviderDatabase::createQuery() const
 dmQuery* 
 dmProviderDatabase::createQuery(dmProviderOperation op, char const* query_string) const
 {
-  char const* provider_name = getProvider(query_string);
+  std::string querystr(query_string);
+  char const* provider_name = nullptr;
+
+  if (dmUtility::has_suffix(querystr, "."))
+  {
+    querystr.erase(querystr.size() - 1);
+    provider_name = getProviderFromObject(querystr.c_str());
+  }
+  else
+  {
+    provider_name = getProvider(query_string);
+  }
   if (!provider_name)
   {
     rtLog_Warn("failed to find provider for query string:%s", query_string);
