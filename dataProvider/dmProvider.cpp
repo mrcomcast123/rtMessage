@@ -25,7 +25,7 @@ dmProvider::~dmProvider()
 }
 
 void
-dmProvider::doGet(std::vector<dmPropertyInfo> const& params, dmQueryResult& result)
+dmProvider::doGet(std::vector<dmPropertyInfo> const& params, std::vector<dmQueryResult>& result)
 {
   dmQueryResult temp;
   for (auto const& propInfo : params)
@@ -40,7 +40,7 @@ dmProvider::doGet(std::vector<dmPropertyInfo> const& params, dmQueryResult& resu
     {
       doGet(propInfo, temp);
     }
-    result.merge(temp);
+    result.push_back(temp);
     temp.clear();
   }
 }
@@ -52,7 +52,7 @@ dmProvider::doGet(dmPropertyInfo const& /*param*/, dmQueryResult& /*result*/)
 }
 
 void
-dmProvider::doSet(std::vector<dmNamedValue> const& params, dmQueryResult& result)
+dmProvider::doSet(std::vector<dmNamedValue> const& params, std::vector<dmQueryResult>& result)
 {
   dmQueryResult temp;
   for (auto const& value : params)
@@ -66,7 +66,7 @@ dmProvider::doSet(std::vector<dmNamedValue> const& params, dmQueryResult& result
     {
       doSet(value, temp);
     }
-    result.merge(temp);
+    result.push_back(temp);
     temp.clear();
   }
 }

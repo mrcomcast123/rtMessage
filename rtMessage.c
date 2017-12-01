@@ -339,6 +339,13 @@ rtMessage_SetSendTopic(rtMessage const m, char const* topic)
   return RT_OK;
 }
 
+/**
+ * Add string field to array in message
+ * @param message to be modified
+ * @param name of the field to be added
+ * @param value of the field to be added
+ * @return rtError
+ **/
 rtError
 rtMessage_AddString(rtMessage m, char const* name, char const* value)
 {
@@ -352,6 +359,40 @@ rtMessage_AddString(rtMessage m, char const* name, char const* value)
   return RT_OK;
 }
 
+/**
+ * Add message field to array in message
+ * @param message to be modified
+ * @param name of the field to be added
+ * @param message to be added
+ * @return rtError
+ **/
+rtError
+rtMessage_AddMessage(rtMessage m, char const* name, rtMessage const item)
+{
+    if (!m || !item)
+    return RT_ERROR_INVALID_ARG;
+
+  cJSON* obj = cJSON_GetObjectItem(m->json, name);
+  if (!obj)
+  {
+    obj = cJSON_CreateArray();
+    cJSON_AddItemToObject(m->json, name, obj);
+  }
+  if (item->json)
+  {
+    cJSON* item_obj = cJSON_Duplicate(item->json, 1);
+    cJSON_AddItemToArray(obj, item_obj);
+  }
+  return RT_OK;
+}
+
+/**
+ * Get length of array from message
+ * @param message to get array length from
+ * @param name of the array
+ * @param fill length of array
+ * @return rtError
+ **/
 rtError
 rtMessage_GetArrayLength(rtMessage const m, char const* name, int32_t* length)
 {
@@ -363,6 +404,15 @@ rtMessage_GetArrayLength(rtMessage const m, char const* name, int32_t* length)
   return RT_OK;
 }
 
+/**
+ * Get string item from array in message
+ * @param message to get string item from
+ * @param name of the string item
+ * @param index of array
+ * @param value obtained
+ * @param length of string item
+ * @return rtError
+ **/
 rtError
 rtMessage_GetStringItem(rtMessage const m, char const* name, int32_t idx, char* value, int len)
 {
@@ -376,6 +426,32 @@ rtMessage_GetStringItem(rtMessage const m, char const* name, int32_t idx, char* 
   if (item)
   {
     strncpy(value, item->valuestring, len);
+  }
+  return RT_OK;
+}
+
+/**
+ * Get message item from array in parent message
+ * @param message to get message item from
+ * @param name of message item
+ * @param index of array
+ * @param message obtained
+ * @return rtError
+ **/
+rtError
+rtMessage_GetMessageItem(rtMessage const m, char const* name, int32_t idx, rtMessage* msg)
+{
+  cJSON* obj = cJSON_GetObjectItem(m->json, name);
+  if (!obj)
+    return RT_PROPERTY_NOT_FOUND;
+  if (idx >= cJSON_GetArraySize(obj))
+    return RT_FAIL;
+
+  *msg = (rtMessage) malloc(sizeof(struct _rtMessage));
+  if (msg)
+  {
+    (*msg)->json = cJSON_GetArrayItem(obj, idx);
+    return RT_OK;
   }
   return RT_OK;
 }

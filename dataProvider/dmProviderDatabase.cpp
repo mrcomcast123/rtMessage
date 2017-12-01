@@ -90,19 +90,28 @@ public:
     rtError err = rtConnection_SendRequest(m_con, req, topic.c_str(), &res, 2000);
     if (err == RT_OK)
     {
+      int32_t len;
+      rtMessage_GetArrayLength(res, "result", &len);
+
+      for (int32_t i = 0; i < len; i++)
+      {
+      rtMessage item;
+      rtMessage_GetMessageItem(res, "result", i, &item);
       int status;
       char const* param = nullptr;
       char const* value = nullptr;
 
-      if (rtMessage_GetString(res, "name", &param) != RT_OK)
+      if (rtMessage_GetString(item, "name", &param) != RT_OK)
         rtLog_Error("failed to get 'name' from paramter");
-      if (rtMessage_GetString(res, "value", &value) != RT_OK)
+      if (rtMessage_GetString(item, "value", &value) != RT_OK)
         rtLog_Error("failed to get 'value' from parameter");
-      if (rtMessage_GetInt32(res, "status", &status) != RT_OK)
+      if (rtMessage_GetInt32(item, "status", &status) != RT_OK)
         rtLog_Error("failed to get 'status' from response");
 
       if (param != nullptr && value != nullptr)
         m_results.addValue(dmNamedValue(param, dmValue(value)), status);
+      }
+
       rtMessage_Destroy(res);
       rtMessage_Destroy(req);
     }
@@ -112,29 +121,16 @@ public:
   {
     if (!m_provider_name)
     {
-      rtLog_Warn("trying to execute a query withtout a provider");
+      rtLog_Warn("Trying to execute a query without a provider");
       return false;
     }
 
     std::string topic("RDK.MODEL.");
     topic += m_provider_name;
 
-    rtLog_Debug("sending dm query on topic:%s", topic.c_str());
+    rtLog_Debug("sending dm query : %s on topic :%s", m_query.c_str(), topic.c_str());
 
-    if (dmUtility::has_suffix(m_query, "."))
-    {
-      std::vector<char const*> parameters = db->getParameters(m_provider_name);
-      for (auto itr : parameters)
-      {
-        std::string param(itr);
-        std::string fullparam = m_query + param;
-        dmRequestResponse(topic, fullparam);
-      }
-    }
-    else
-    {
-      dmRequestResponse(topic, m_query);
-    }
+    dmRequestResponse(topic, m_query);
 
     reset();
     return true;
@@ -346,7 +342,8 @@ dmProviderDatabase::createQuery(dmProviderOperation op, char const* query_string
   }
 
   dmQueryImpl* query = new dmQueryImpl();
-  query->setQueryString(op, query_string);
-  query->setProviderName(provider_name);
+  bool status = query->setQueryString(op, query_string);
+  if (status)
+    query->setProviderName(provider_name);
   return query;
 }

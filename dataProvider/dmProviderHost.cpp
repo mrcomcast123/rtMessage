@@ -102,6 +102,7 @@ private:
 
     rtMessage req;
     rtError e = rtMessage_FromBytes(&req, buff, n);
+    printf("\n Request received %s", buff);
 
     if (e != RT_OK)
     {
@@ -110,7 +111,7 @@ private:
 
     dmProviderHostImpl* host = reinterpret_cast<dmProviderHostImpl *>(closure);
 
-    dmQueryResult result;
+    std::vector<dmQueryResult> results;
     dmProviderOperation op = host->decodeOperation(req);
 
     if (op == dmProviderOperation_Get)
@@ -118,20 +119,24 @@ private:
       std::string provider_name;
       std::vector<dmPropertyInfo> params;
       host->decodeGetRequest(req, provider_name, params);
-      host->doGet(provider_name, params, result);
+      host->doGet(provider_name, params, results);
     }
     else if (op == dmProviderOperation_Set)
     {
       std::string provider_name;
       std::vector<dmNamedValue> params;
       host->decodeSetRequest(req, provider_name, params);
-      host->doSet(provider_name, params, result);
+      host->doSet(provider_name, params, results);
     }
 
     rtMessage res;
     rtMessage_Create(&res);
-    host->encodeResult(res, result);
+    host->encodeResult(res, results);
     rtConnection_SendResponse(m_con, hdr, res, 1000);
+    char* buffer = nullptr;
+    uint32_t num = 0;
+    rtError err = rtMessage_ToString(res, &buffer, &num);
+    printf("\n Response sent is : %s", buffer);
     rtMessage_Destroy(res);
   }
 
@@ -148,6 +153,8 @@ private:
   void decodeGetRequest(rtMessage req, std::string& name, std::vector<dmPropertyInfo>& params)
   {
     char const* provider_name = nullptr;
+    dmPropertyInfo propertyInfo;
+
     rtMessage_GetString(req, "provider", &provider_name);
     if (provider_name)
       name = provider_name;
@@ -158,14 +165,28 @@ private:
     char const* property_name;
     rtMessage_GetString(item, "name", &property_name);
 
-    std::string param_name(property_name);
-    dmPropertyInfo propertyInfo;
-
-    char* param = new char[256];
-    dmUtility::splitQuery(property_name, param);
-    propertyInfo.setName(param);
-    params.push_back(propertyInfo);
-    delete [] param;
+    if (dmUtility::has_suffix(property_name, "."))
+    {
+      std::vector<char const*> parameters = db->getParameters(provider_name);
+      for (auto itr : parameters)
+      {
+        std::string param(itr);
+        std::string fullparam = property_name + param;
+        char* parameter = new char[256];
+        dmUtility::splitQuery(fullparam.c_str(), parameter);
+        propertyInfo.setName(parameter);
+        params.push_back(propertyInfo);
+        delete [] parameter;
+      }
+    }
+    else
+    {
+      char* param = new char[256];
+      dmUtility::splitQuery(property_name, param);
+      propertyInfo.setName(param);
+      params.push_back(propertyInfo);
+      delete [] param;
+    }
 
     rtMessage_Destroy(item);
   }
@@ -197,23 +218,26 @@ private:
     params.push_back(namedValue);
   }
 
-  void encodeResult(rtMessage& res, dmQueryResult const& resultSet)
+  void encodeResult(rtMessage& res, std::vector<dmQueryResult> const& resultSet)
   {
-    int status_code = resultSet.status();
-    for (auto const& result : resultSet.values())
+    for (auto paramresult : resultSet)
     {
-      if (result.StatusCode != 0 && status_code == 0)
-        status_code = result.StatusCode;
+      rtMessage msg;
+      rtMessage_Create(&msg);
+      int status_code = paramresult.status();
+      for (auto const& result : paramresult.values())
+      {
+        if (result.StatusCode != 0 && status_code == 0)
+          status_code = result.StatusCode;
 
-      dmNamedValue const& val = result.Value;
-      rtMessage_SetString(res, "name", val.name().c_str());
-      rtMessage_SetString(res, "value", val.value().toString().c_str());
-
-      // TODO: currently response only handles single value, should handle list
-      break;
+        dmNamedValue const& val = result.Value;
+        rtMessage_SetString(msg, "name", val.name().c_str());
+        rtMessage_SetString(msg, "value", val.value().toString().c_str());
+      }
+      rtMessage_SetInt32(msg, "status", status_code);
+      rtMessage_AddMessage(res, "result", msg);
+      rtMessage_Destroy(msg);
     }
-
-    rtMessage_SetInt32(res, "status", status_code);
   }
 
 private:
@@ -243,7 +267,7 @@ dmProviderHost::registerProvider(char const* object, std::unique_ptr<dmProvider>
 
 void
 dmProviderHost::doGet(std::string const& providerName, std::vector<dmPropertyInfo> const& params,
-    dmQueryResult& result)
+    std::vector<dmQueryResult>& result)
 {
   auto itr = m_providers.find(providerName);
   if (itr != m_providers.end())
@@ -254,7 +278,7 @@ dmProviderHost::doGet(std::string const& providerName, std::vector<dmPropertyInf
 
 void
 dmProviderHost::doSet(std::string const& providerName, std::vector<dmNamedValue> const& params,
-    dmQueryResult& result)
+    std::vector<dmQueryResult>& result)
 {
   auto itr = m_providers.find(providerName);
   if (itr != m_providers.end())

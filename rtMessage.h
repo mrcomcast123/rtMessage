@@ -77,15 +77,58 @@ rtMessage_ToByteArray(rtMessage message, uint8_t** buff, uint32_t* n);
 void
 rtMessage_SetString(rtMessage message, char const* name, char const* value);
 
+/**
+ * Add string field to array in message
+ * @param message to be modified
+ * @param name of the field to be added
+ * @param value of the field to be added
+ * @return rtError
+ **/
 rtError
 rtMessage_AddString(rtMessage message, char const* name, char const* value);
 
+/**
+ * Add message field to array in message
+ * @param message to be modified
+ * @param name of the field to be added
+ * @param message to be added
+ * @return rtError
+ **/
+rtError
+rtMessage_AddMessage(rtMessage m, char const* name, rtMessage const item);
+
+/**
+ * Get length of array from message
+ * @param message to get array length from
+ * @param name of the array
+ * @param fill length of array
+ * @return rtError
+ **/
 rtError
 rtMessage_GetArrayLength(rtMessage const m, char const* name, int32_t* length);
 
+/**
+ * Get string item from array in message
+ * @param message to get string item from
+ * @param name of the string item
+ * @param index of array
+ * @param value obtained
+ * @param length of string item
+ * @return rtError
+ **/
 rtError
 rtMessage_GetStringItem(rtMessage const m, char const* name, int32_t idx, char* value, int len);
 
+/**
+ * Get message item from array in parent message
+ * @param message to get message item from
+ * @param name of message item
+ * @param index of array
+ * @param message obtained
+ * @return rtError
+ **/
+rtError
+rtMessage_GetMessageItem(rtMessage const m, char const* name, int32_t idx, rtMessage* msg);
 
 /**
  * Add integer field to the message

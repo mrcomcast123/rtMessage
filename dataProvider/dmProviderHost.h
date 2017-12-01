@@ -68,15 +68,16 @@ protected:
   virtual bool providerRegistered(std::string const& name) = 0;
 
   void doGet(std::string const& providerName, std::vector<dmPropertyInfo> const& params,
-    dmQueryResult& result);
+    std::vector<dmQueryResult>& result);
 
   void doSet(std::string const& providerName, std::vector<dmNamedValue> const& params,
-    dmQueryResult& result);
+    std::vector<dmQueryResult>& result);
+
+  dmProviderDatabase* db;
 
 private:
   std::map< std::string, std::unique_ptr<dmProvider> > m_providers;
   std::string m_providername;
-  dmProviderDatabase* db;
 };
 
 #endif

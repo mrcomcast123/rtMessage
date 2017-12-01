@@ -30,8 +30,8 @@ public:
   inline std::string const& name() const
     { return m_name; }
 
-  virtual void doGet(std::vector<dmPropertyInfo> const& params, dmQueryResult& result);
-  virtual void doSet(std::vector<dmNamedValue> const& params, dmQueryResult& result);
+  virtual void doGet(std::vector<dmPropertyInfo> const& params, std::vector<dmQueryResult>& result);
+  virtual void doSet(std::vector<dmNamedValue> const& params, std::vector<dmQueryResult>& result);
 
 protected:
   virtual void doGet(dmPropertyInfo const& param, dmQueryResult& result);
