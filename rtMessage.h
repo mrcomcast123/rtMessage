@@ -239,6 +239,22 @@ rtMessage_GetSendTopic(rtMessage const m, char* topic);
 rtError
 rtMessage_SetSendTopic(rtMessage m, char const* topic);
 
+/**
+ * Increase reference count of message by 1
+ * @param message
+ * @return rtError
+ **/
+rtError
+rtMessage_Retain(rtMessage m);
+
+/**
+ * Decrease reference count of message by 1 and destroy message if count is 0
+ * @param message
+ * @return rtError
+ **/
+rtError
+rtMessage_Release(rtMessage m);
+
 #ifdef __cplusplus
 }
 #endif

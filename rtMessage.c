@@ -20,10 +20,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdatomic.h>
 
 struct _rtMessage
 {
   cJSON* json;
+  atomic_int count;
 };
 
 /**
@@ -37,7 +39,9 @@ rtMessage_Create(rtMessage* message)
   *message = (rtMessage) malloc(sizeof(struct _rtMessage));
   if (message)
   {
+    (*message)->count = 0;
     (*message)->json = cJSON_CreateObject();
+    __atomic_fetch_add(&(*message)->count, 1, __ATOMIC_SEQ_CST);
     return RT_OK;
   }
   return RT_FAIL;
@@ -101,7 +105,7 @@ rtMessage_FromBytes(rtMessage* message, uint8_t const* bytes, int n)
 rtError
 rtMessage_Destroy(rtMessage message)
 {
-  if (message)
+  if ((message) && ((message)->count == 0))
   {
     if (message->json)
       cJSON_Delete(message->json);
@@ -454,4 +458,28 @@ rtMessage_GetMessageItem(rtMessage const m, char const* name, int32_t idx, rtMes
     return RT_OK;
   }
   return RT_OK;
+}
+
+/**
+ * Increase reference count of message by 1
+ * @param message
+ * @return rtError
+ **/
+rtError
+rtMessage_Retain(rtMessage m)
+{
+  __atomic_fetch_add(&m->count, 1, __ATOMIC_SEQ_CST);
+}
+
+/**
+ * Decrease reference count of message by 1 and destroy message if count is 0
+ * @param message
+ * @return rtError
+ **/
+rtError
+rtMessage_Release(rtMessage m)
+{
+  __atomic_fetch_sub(&m->count, 1, __ATOMIC_SEQ_CST);
+  if (m->count == 0)
+    rtMessage_Destroy(m);
 }
