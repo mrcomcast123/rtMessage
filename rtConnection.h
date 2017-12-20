@@ -56,6 +56,14 @@ rtConnection_Create(rtConnection* con, char const* application_name, char const*
 rtError
 rtConnection_Destroy(rtConnection con);
 
+/** Send an Error message to caller when no provide/Route is available
+ *@param clnt_fd
+ *@param request_header
+ *@return error
+ */
+rtError
+rtConnection_SendErrorMessageToCaller(int clnt_fd , rtMessageHeader const* request_header);
+
 /**
  * Sends a message
  * @param con

@@ -10,8 +10,9 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License.
+i * limitations under the License.
  */
+#include "rtMessage.h"
 #include "rtConnection.h"
 #include "rtEncoder.h"
 #include "rtError.h"
@@ -207,7 +208,8 @@ rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count, int32_t timeo
 
     ssize_t n = recv(con->fd, buff + bytes_read, (bytes_to_read - bytes_read), MSG_NOSIGNAL);
     if (n == 0)
-      return rtErrorFromErrno(ENOTCONN);
+      return RT_ERROR;
+    //return rtErrorFromErrno(ENOTCONN);
     if (n == -1)
     {
       if (errno == EINTR)
@@ -303,6 +305,36 @@ rtConnection_Destroy(rtConnection con)
 }
 
 rtError
+rtConnection_SendErrorMessageToCaller(int clnt_fd ,rtMessageHeader const* request_header)
+{
+    rtConnection t_con = (rtConnection) malloc(sizeof(struct _rtConnection));
+    memset(t_con,0,sizeof(struct _rtConnection));
+ 
+    t_con->fd = clnt_fd;
+    t_con->send_buffer = (uint8_t *) malloc(RTMSG_SEND_BUFFER_SIZE);
+    t_con->recv_buffer = (uint8_t *) malloc(RTMSG_SEND_BUFFER_SIZE);
+    memset(t_con->send_buffer, 0, RTMSG_SEND_BUFFER_SIZE);
+    memset(t_con->recv_buffer, 0, RTMSG_SEND_BUFFER_SIZE);
+    //Adding topic in request header
+    rtMessageHeader new_header;
+    rtMessageHeader_Init(&new_header);
+    strcpy(new_header.topic, "NO.ROUTE.RESPONSE");
+    strcpy(new_header.reply_topic, request_header->reply_topic);
+
+    //Create Response
+    rtMessage res;
+    rtMessage_Create(&res);
+    rtMessage msg;
+    rtMessage_Create(&msg);
+    rtMessage_SetString(msg, "name", "Error Message");
+    rtMessage_SetString(msg, "value", "No Route found for this Parameter");
+    rtMessage_SetInt32(msg, "status", 1);
+    rtMessage_AddMessage(res, "result", msg);
+    //Send response
+    rtConnection_SendResponse(t_con, &new_header, res, 1000);
+    return RT_OK;
+}
+rtError
 rtConnection_SendMessage(rtConnection con, rtMessage msg, char const* topic)
 {
   uint8_t* p;
@@ -322,7 +354,7 @@ rtConnection_SendResponse(rtConnection con, rtMessageHeader const* request_hdr, 
   rtError err;
 
   rtMessage_ToByteArray(res, &p, &n);
-  err = rtConnection_SendInternal(con, request_hdr->reply_topic, p, n, NULL, rtMessageFlags_Response);
+  err = rtConnection_SendInternal(con, request_hdr->reply_topic, p, n, request_hdr->topic, rtMessageFlags_Response);
   free(p);
 
   (void) timeout;
@@ -551,6 +583,9 @@ rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
   {
     for (i = 0; i < RTMSG_LISTENERS_MAX; ++i)
     {
+      if(strstr(hdr.reply_topic,"NO.ROUTE.RESPONSE")) {
+        con->listeners[i].subscription_id = 0;
+      }
       if (con->listeners[i].in_use && (con->listeners[i].subscription_id == hdr.control_data))
       {
         rtLog_Debug("found subscription match:%d", i);

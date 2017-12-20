@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "rtConnection.h"
+#include "rtMessage.h"
 #include "rtDebug.h"
 #include "rtLog.h"
 #include "rtEncoder.h"
@@ -20,6 +20,7 @@
 #include "rtMessageHeader.h"
 #include "rtSocket.h"
 #include "rtVector.h"
+#include "rtConnection.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -346,6 +347,8 @@ rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt)
     // TODO: If this is a request, then send message directly back 
     // to caller
     rtLog_Error("no client found for match:%s", clnt->header.topic);
+    //No route Found , Returning a Error Message to caller
+    rtConnection_SendErrorMessageToCaller(clnt->fd, &clnt->header);
   }
 }
 

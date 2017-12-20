@@ -27,6 +27,7 @@ rtMessageHeader_Init(rtMessageHeader* hdr)
   hdr->header_length = 0;
   hdr->sequence_number = 0;
   hdr->flags = 0;
+  hdr->control_data = 0;
   hdr->payload_length = 0;
   hdr->topic_length = 0;
   memset(hdr->topic, 0, RTMSG_HEADER_MAX_TOPIC_LENGTH);
