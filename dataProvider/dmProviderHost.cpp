@@ -133,11 +133,7 @@ private:
     rtMessage_Create(&res);
     host->encodeResult(res, results);
     rtConnection_SendResponse(m_con, hdr, res, 1000);
-    char* buffer = nullptr;
-    uint32_t num = 0;
-    rtError err = rtMessage_ToString(res, &buffer, &num);
-    printf("\n Response sent is : %s", buffer);
-    rtMessage_Destroy(res);
+    rtMessage_Release(res);
   }
 
   dmProviderOperation decodeOperation(rtMessage req)
@@ -188,7 +184,7 @@ private:
       delete [] param;
     }
 
-    rtMessage_Destroy(item);
+    rtMessage_Release(item);
   }
 
   void decodeSetRequest(rtMessage req, std::string& name, std::vector<dmNamedValue>& params)
@@ -212,7 +208,7 @@ private:
 
     dmNamedValue namedValue(param, property_value);
 
-    rtMessage_Destroy(item);
+    rtMessage_Release(item);
     delete [] param;
 
     params.push_back(namedValue);
@@ -236,7 +232,7 @@ private:
       }
       rtMessage_SetInt32(msg, "status", status_code);
       rtMessage_AddMessage(res, "result", msg);
-      rtMessage_Destroy(msg);
+      rtMessage_Release(msg);
     }
   }
 

@@ -44,7 +44,7 @@ int main()
     err = rtConnection_SendMessage(con, m, "A.B.C");
     rtLog_Info("send[%s]: %s", "A.B.C", rtStrError(err));
 
-    rtMessage_Destroy(m);
+    rtMessage_Release(m);
     sleep(1);
 
     rtMessage_Create(&m);
@@ -53,7 +53,7 @@ int main()
     err = rtConnection_SendMessage(con, m, "A.B.C.FOO.BAR");
     rtLog_Info("send[%s]: %s", "A.B.C.FOO.BAR", rtStrError(err));
 
-    rtMessage_Destroy(m);
+    rtMessage_Release(m);
     sleep(1);
   }
 

@@ -50,14 +50,6 @@ rtError
 rtMessage_FromBytes(rtMessage* message, uint8_t const* buff, int n);
 
 /**
- * Destroy a message; free the storage that it occupies.
- * @param pointer to message to be destroyed
- * @return rtError
- **/
-rtError
-rtMessage_Destroy(rtMessage message);
-
-/**
  * Extract the data from a message as a byte sequence.
  * @param extract the data bytes from this message.
  * @param pointer to the byte sequence location

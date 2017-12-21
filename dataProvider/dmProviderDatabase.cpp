@@ -112,8 +112,8 @@ public:
         m_results.addValue(dmNamedValue(param, dmValue(value)), status);
       }
 
-      rtMessage_Destroy(res);
-      rtMessage_Destroy(req);
+      rtMessage_Release(res);
+      rtMessage_Release(req);
     }
   }
 

@@ -38,7 +38,7 @@ static void on_message(rtMessageHeader const* hdr, uint8_t const* buff, uint32_t
   }
   printf("END MESSAGE\n");
 
-  rtMessage_Destroy(m);
+  rtMessage_Release(m);
 }
 
 int main(int argc, char* argv[])

@@ -32,7 +32,7 @@
 #include <unistd.h>
 
 #define RTMSG_LISTENERS_MAX 64
-#define RTMSG_SEND_BUFFER_SIZE (1024 * 4094)
+#define RTMSG_SEND_BUFFER_SIZE (1024 * 8)
 
 struct _rtListener
 {
@@ -65,7 +65,7 @@ static void onInboxMessage(rtMessageHeader const* hdr, uint8_t const* p, uint32_
     struct _rtConnection* con = (struct _rtConnection *) closure;
     if (con->response != NULL)
     {
-      rtMessage_Destroy(con->response);
+      rtMessage_Release(con->response);
       con->response = NULL;
     }
     rtMessage_FromBytes(&con->response, p, n);
@@ -154,7 +154,7 @@ rtConnection_ConnectAndRegister(rtConnection con)
       rtMessage_SetString(m, "topic", con->listeners[i].expression);
       rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id);
       rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
-      rtMessage_Destroy(m);
+      rtMessage_Release(m);
     }
   }
 
@@ -208,8 +208,11 @@ rtConnection_ReadUntil(rtConnection con, uint8_t* buff, int count, int32_t timeo
 
     ssize_t n = recv(con->fd, buff + bytes_read, (bytes_to_read - bytes_read), MSG_NOSIGNAL);
     if (n == 0)
-      return RT_ERROR;
-    //return rtErrorFromErrno(ENOTCONN);
+    {
+      rtLog_Error("Failed to read error : %s", rtStrError(rtErrorFromErrno(ENOTCONN)));
+      return rtErrorFromErrno(ENOTCONN);
+    }
+
     if (n == -1)
     {
       if (errno == EINTR)
@@ -502,7 +505,7 @@ rtConnection_AddListener(rtConnection con, char const* expression, rtMessageCall
   rtMessage_SetString(m, "topic", expression);
   rtMessage_SetInt32(m, "route_id", con->listeners[i].subscription_id); 
   rtConnection_SendMessage(con, m, "_RTROUTED.INBOX.SUBSCRIBE");
-  rtMessage_Destroy(m);
+  rtMessage_Release(m);
 
   return 0;
 }
@@ -535,6 +538,7 @@ rtConnection_TimedDispatch(rtConnection con, int32_t timeout)
   {
     con->state = rtConnectionState_ReadHeaderPreamble;
     err = rtConnection_ReadUntil(con, con->recv_buffer, 4, timeout);
+
     if (err == RT_ERROR_TIMEOUT)
       return err;
 

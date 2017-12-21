@@ -50,8 +50,8 @@ int main()
       free(p);
     }
 
-    rtMessage_Destroy(req);
-    rtMessage_Destroy(res);
+    rtMessage_Release(req);
+    rtMessage_Release(res);
 
     sleep(1);
   }

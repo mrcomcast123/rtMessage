@@ -235,7 +235,7 @@ rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t cons
     subscription->client = sender;
     rtRouted_AddRoute(rtRouted_ForwardMessage, expression, subscription);
 
-    rtMessage_Destroy(m);
+    rtMessage_Release(m);
   }
   else if (strcmp(hdr->topic, "_RTROUTED.INBOX.HELLO") == 0)
   {
@@ -250,7 +250,7 @@ rtRouted_OnMessage(rtConnectedClient* sender, rtMessageHeader* hdr, uint8_t cons
     subscription->client = sender;
     rtRouted_AddRoute(rtRouted_ForwardMessage, inbox, subscription);
 
-    rtMessage_Destroy(m);
+    rtMessage_Release(m);
   }
   else
   {
