@@ -341,13 +341,13 @@ rtRouter_DispatchMessageFromClient(rtConnectedClient* clnt)
     if (err == RT_OK)
       i++;
   }
-
-  if (!match_found)
+  int is_request = rtMessageHeader_IsRequest(&clnt->header);
+  if (!match_found && is_request)
   {
     // TODO: If this is a request, then send message directly back 
     // to caller
     rtLog_Error("no client found for match:%s", clnt->header.topic);
-    //No route Found , Returning a Error Message to caller
+    //No route Found , Returning an Error Message to caller
     rtConnection_SendErrorMessageToCaller(clnt->fd, &clnt->header);
   }
 }
