@@ -100,6 +100,7 @@ public:
       int status;
       char const* param = nullptr;
       char const* value = nullptr;
+      char const* status_msg = nullptr;
 
       if (rtMessage_GetString(item, "name", &param) != RT_OK)
         rtLog_Error("failed to get 'name' from paramter");
@@ -107,9 +108,11 @@ public:
         rtLog_Error("failed to get 'value' from parameter");
       if (rtMessage_GetInt32(item, "status", &status) != RT_OK)
         rtLog_Error("failed to get 'status' from response");
+      if (rtMessage_GetString(item, "status_msg", &status_msg) != RT_OK)
+        rtLog_Error("failed to get 'status message' from response");
 
       if (param != nullptr && value != nullptr)
-        m_results.addValue(dmNamedValue(param, dmValue(value)), status);
+        m_results.addValue(dmNamedValue(param, dmValue(value)), status, status_msg);
       }
 
       rtMessage_Release(res);
@@ -262,6 +265,32 @@ dmProviderDatabase::loadFile(std::string const& dir, char const* fname)
     cJSON* name = cJSON_GetObjectItem(json, "name");
     modelInfoDB.insert(std::make_pair(name->valuestring, json));
   }
+}
+
+int
+dmProviderDatabase::isWritable(char const* param, char const* provider)
+{
+  for (auto iter : modelInfoDB)
+  {
+    cJSON* objProv = cJSON_GetObjectItem(iter.second, "provider");
+    std::string objectProvider = objProv->valuestring;
+    if (strcmp(objectProvider.c_str(), provider) == 0)
+    {
+      cJSON *properties = cJSON_GetObjectItem(iter.second, "properties");
+      for (int i = 0 ; i < cJSON_GetArraySize(properties); i++)
+      {
+        cJSON *subitem = cJSON_GetArrayItem(properties, i);
+        cJSON* obj = cJSON_GetObjectItem(subitem, "name");
+        std::string objName = obj->valuestring;
+        if (strcmp(objName.c_str(), param) == 0)
+        {
+          cJSON* objWrite = cJSON_GetObjectItem(subitem, "writable");
+          return objWrite->valueint;
+        }
+      }
+    }
+  }
+  return 1;
 }
 
 char const*

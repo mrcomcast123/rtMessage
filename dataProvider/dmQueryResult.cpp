@@ -14,6 +14,10 @@
  */
 #include "dmQueryResult.h"
 #include <iterator>
+#include <cstring>
+#include <stdio.h>
+#include <iostream>
+#include <string>
 
 dmQueryResult::dmQueryResult()
   : m_status(0)
@@ -25,6 +29,7 @@ dmQueryResult::clear()
 {
   m_status = 0;
   m_values.clear();
+  m_statusMsg.clear();
 }
 
 void
@@ -33,6 +38,8 @@ dmQueryResult::merge(dmQueryResult const& result)
   m_values.insert(std::end(m_values), std::begin(result.m_values), std::end(result.m_values));
   if (m_status == 0 && result.m_status != 0)
     m_status = result.m_status;
+  if (!result.m_statusMsg.empty())
+    setStatusMsg(result.m_statusMsg);
 }
 
 void
@@ -42,11 +49,19 @@ dmQueryResult::setStatus(int status)
 }
 
 void
+dmQueryResult::setStatusMsg(std::string statusmsg)
+{
+   m_statusMsg = statusmsg;
+}
+
+void
 dmQueryResult::addValue(dmNamedValue const& val, int code, char const* msg)
 {
   if (m_status == 0 && code != 0)
     m_status = code;
   m_values.push_back(Param(code, msg, val));
+  if (msg)
+    setStatusMsg(std::string(msg));
 }
 
 dmQueryResult::Param::Param(int code, char const* msg, dmNamedValue const& val)

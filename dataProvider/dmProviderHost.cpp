@@ -19,6 +19,7 @@
 #include <sstream>
 #include <cstring>
 #include <iostream>
+#include <algorithm>
 
 #include <rtConnection.h>
 #include <rtError.h>
@@ -146,7 +147,7 @@ private:
       return dmProviderOperation_Get;
   }
 
-  void decodeGetRequest(rtMessage req, std::string& name, std::vector<dmPropertyInfo>& params)
+   void decodeGetRequest(rtMessage req, std::string& name, std::vector<dmPropertyInfo>& params)
   {
     char const* provider_name = nullptr;
     dmPropertyInfo propertyInfo;
@@ -161,10 +162,11 @@ private:
     char const* property_name;
     rtMessage_GetString(item, "name", &property_name);
 
+    std::vector<char const*> param_container = db->getParameters(provider_name);
+
     if (dmUtility::has_suffix(property_name, "."))
     {
-      std::vector<char const*> parameters = db->getParameters(provider_name);
-      for (auto itr : parameters)
+      for (auto itr : param_container)
       {
         std::string param(itr);
         std::string fullparam = property_name + param;
@@ -179,11 +181,17 @@ private:
     {
       char* param = new char[256];
       dmUtility::splitQuery(property_name, param);
-      propertyInfo.setName(param);
+      if (std::find(param_container.begin(), param_container.end(), std::string(param)) != param_container.end())
+      {
+        propertyInfo.setName(param);
+      }
+      else
+      {
+        propertyInfo.setName(" ");
+      }
       params.push_back(propertyInfo);
       delete [] param;
     }
-
     rtMessage_Release(item);
   }
 
@@ -193,6 +201,8 @@ private:
     rtMessage_GetString(req, "provider", &provider_name);
     if (provider_name)
       name = provider_name;
+
+    std::vector<char const*> param_container = db->getParameters(provider_name);
 
     rtMessage item;
     rtMessage_GetMessage(req, "params", &item);
@@ -206,12 +216,27 @@ private:
     char const* property_value;
     rtMessage_GetString(item, "value", &property_value);
 
-    dmNamedValue namedValue(param, property_value);
+    if (std::find(param_container.begin(), param_container.end(), std::string(param)) != param_container.end())
+    {
+      if (db->isWritable(param, provider_name))
+      {
+        dmNamedValue namedValue(param, property_value);
+        params.push_back(namedValue);
+      }
+      else
+      {
+        dmNamedValue namedValue("nonwritable", " ");
+        params.push_back(namedValue);
+      }
+    }
+    else
+    {
+      dmNamedValue namedValue(" ", " ");
+      params.push_back(namedValue);
+    }
 
     rtMessage_Release(item);
     delete [] param;
-
-    params.push_back(namedValue);
   }
 
   void encodeResult(rtMessage& res, std::vector<dmQueryResult> const& resultSet)
@@ -221,16 +246,21 @@ private:
       rtMessage msg;
       rtMessage_Create(&msg);
       int status_code = paramresult.status();
+      std::string status_msg = paramresult.statusMsg();
       for (auto const& result : paramresult.values())
       {
         if (result.StatusCode != 0 && status_code == 0)
           status_code = result.StatusCode;
+
+        if(!result.StatusMessage.empty())
+          status_msg = result.StatusMessage;
 
         dmNamedValue const& val = result.Value;
         rtMessage_SetString(msg, "name", val.name().c_str());
         rtMessage_SetString(msg, "value", val.value().toString().c_str());
       }
       rtMessage_SetInt32(msg, "status", status_code);
+      rtMessage_SetString(msg, "status_msg", status_msg.c_str());
       rtMessage_AddMessage(res, "result", msg);
       rtMessage_Release(msg);
     }

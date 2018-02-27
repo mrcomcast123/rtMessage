@@ -34,6 +34,7 @@ public:
   void clear();
   void merge(dmQueryResult const& resuls);
   void setStatus(int status);
+  void setStatusMsg(std::string statusmsg);
   void addValue(dmNamedValue const& val, int code = 0, char const* msg = nullptr);
 
   inline int status() const
@@ -42,9 +43,13 @@ public:
   inline std::vector<Param> values() const
     { return m_values; }
 
+  inline std::string statusMsg() const
+    { return m_statusMsg; }
+
 private:
   int m_status;
   std::vector<Param> m_values;
+  std::string m_statusMsg;
 };
 
 #endif

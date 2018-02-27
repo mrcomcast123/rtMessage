@@ -21,19 +21,18 @@ class MyProvider : public dmProvider
 public:
   MyProvider()
   {
-    // use lambda for simple stuff
-    onGet("ModelName", []() -> dmValue {
-      return "xCam";
-    });
 
-    // can use member function
-    onGet("Manufacturer", std::bind(&MyProvider::getManufacturer, this));
   }
 
 private:
   dmValue getManufacturer()
   {
     return "Comcast";
+  }
+
+  dmValue getModelName()
+  {
+    return "Xcam";
   }
 
   void setManufacturer(const std::string& name, const std::string& value)
@@ -45,9 +44,18 @@ protected:
   // override the basic get and use ladder if/else
   virtual void doGet(dmPropertyInfo const& param, dmQueryResult& result)
   {
-    if (param.name() == "SerialNumber")
+    if (param.name() == "Manufacturer")
     {
-      result.addValue(dmNamedValue(param.name(), 12345));
+      result.addValue(dmNamedValue(param.name(), getManufacturer()));
+    }
+    else if (param.name() == "ModelName")
+    {
+      result.addValue(dmNamedValue(param.name(), getModelName()));
+    }
+    else if (param.name() == " ")
+    {
+      result.addValue(dmNamedValue(" ", " "), 1, "Parameter Not found");
+      printf("\n Parameter not found in datamodel \n");
     }
     else
     {
@@ -62,6 +70,14 @@ protected:
     {
       setManufacturer(param.name(), param.value().toString());
       result.addValue(dmNamedValue(param.name(), param.value()));
+    }
+    else if(param.name() == " ")
+    {
+      result.addValue(dmNamedValue(" ", " "), 1, "Parameter not found");
+    }
+    else if(param.name() == "nonwritable")
+    {
+      result.addValue(dmNamedValue(" ", " "), 1, "Parameter not writable");
     }
     else
       result.addValue(dmNamedValue(param.name(), param.value()));

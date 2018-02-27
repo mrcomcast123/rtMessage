@@ -33,6 +33,7 @@ public:
   dmQuery* createQuery(dmProviderOperation op, char const* s) const;
   char const* getProviderFromObject(char const* object) const;
   std::vector<char const*> getParameters(char const* provider) const;
+  int isWritable(char const* param, char const* provider);
 private:
   char const* getProvider(char const* query) const;
   void loadFromDir(std::string const& dir);
