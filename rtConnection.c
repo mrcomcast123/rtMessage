@@ -335,6 +335,8 @@ rtConnection_SendErrorMessageToCaller(int clnt_fd ,rtMessageHeader const* reques
     rtMessage_AddMessage(res, "result", msg);
     //Send response
     rtConnection_SendResponse(t_con, &new_header, res, 1000);
+    rtMessage_Release(msg);
+    rtMessage_Release(res);
     return RT_OK;
 }
 rtError
