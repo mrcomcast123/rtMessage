@@ -329,9 +329,10 @@ rtConnection_SendErrorMessageToCaller(int clnt_fd ,rtMessageHeader const* reques
     rtMessage_Create(&res);
     rtMessage msg;
     rtMessage_Create(&msg);
-    rtMessage_SetString(msg, "name", "Error Message");
-    rtMessage_SetString(msg, "value", "No Route found for this Parameter");
+    rtMessage_SetString(msg, "name", "");
+    rtMessage_SetString(msg, "value", "");
     rtMessage_SetInt32(msg, "status", 1);
+    rtMessage_SetString(msg,"status_msg","No Route found for this Parameter");
     rtMessage_AddMessage(res, "result", msg);
     //Send response
     rtConnection_SendResponse(t_con, &new_header, res, 1000);
