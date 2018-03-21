@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
 
     std::unique_ptr<dmQuery> query(db.createQuery(op, token.c_str()));
 
-    if (!query->exec())
+    if (!query || !query->exec())
     {
       exit_code = -1;
     }
