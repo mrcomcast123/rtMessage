@@ -469,6 +469,7 @@ rtError
 rtMessage_Retain(rtMessage m)
 {
   __atomic_fetch_add(&m->count, 1, __ATOMIC_SEQ_CST);
+  return 0;
 }
 
 /**
@@ -482,4 +483,5 @@ rtMessage_Release(rtMessage m)
   __atomic_fetch_sub(&m->count, 1, __ATOMIC_SEQ_CST);
   if (m->count == 0)
     rtMessage_Destroy(m);
+  return 0;
 }
