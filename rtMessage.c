@@ -39,9 +39,8 @@ rtMessage_Create(rtMessage* message)
   *message = (rtMessage) malloc(sizeof(struct _rtMessage));
   if (message)
   {
-    (*message)->count = 0;
     (*message)->json = cJSON_CreateObject();
-    __atomic_fetch_add(&(*message)->count, 1, __ATOMIC_SEQ_CST);
+    (*message)->count = 1;
     return RT_OK;
   }
   return RT_FAIL;
@@ -60,6 +59,7 @@ rtMessage_Clone(rtMessage const message, rtMessage* copy)
   if (copy)
   {
     (*copy)->json = cJSON_Duplicate(message->json, 1);
+    (*copy)->count = 1;
     return RT_OK;
   }
   return RT_FAIL;
@@ -301,6 +301,7 @@ rtMessage_GetMessage(rtMessage const message, char const* name, rtMessage* clone
   if (p)
   {
      (*clone)->json = cJSON_Duplicate(p, cJSON_True);
+     (*clone)->count = 1;
      return RT_OK;
   }
   return RT_FAIL;

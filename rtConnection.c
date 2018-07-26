@@ -384,6 +384,12 @@ rtConnection_SendRequest(rtConnection con, rtMessage const req, char const* topi
   rtMessage_ToByteArray(req, &p, &n);
 
   err = rtConnection_SendInternal(con, topic, p, n, con->inbox_name, rtMessageFlags_Request);
+  if (p)
+  {
+    free(p);
+    p = NULL;
+  }
+
   if (err != RT_OK)
     return err;
 
