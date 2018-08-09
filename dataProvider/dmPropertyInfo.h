@@ -17,7 +17,7 @@
 
 #include <string>
 
-#include "dmValue.h"
+#include "dmValueType.h"
 
 class dmProviderDatabase;
 
@@ -37,18 +37,23 @@ public:
   inline bool isWritable() const
     { return m_writable; }
 
+  inline std::string const& fullName() const
+    { return m_full_name; }
+
 public:
   dmPropertyInfo();
   void setName(std::string const& name);
   void setType(dmValueType t);
   void setIsOptional(bool b);
   void setIsWritable(bool b);
+  void setFullName(std::string const& name);
 
 private:
   std::string m_name;
   dmValueType m_type;
   bool        m_optional;
   bool        m_writable;
+  std::string m_full_name;
 };
 
 

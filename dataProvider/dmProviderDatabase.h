@@ -31,13 +31,14 @@ public:
 
   dmQuery* createQuery() const;
   dmQuery* createQuery(dmProviderOperation op, char const* s) const;
-  char const* getProviderFromObject(char const* object) const;
-  std::vector<char const*> getParameters(char const* provider) const;
-  int isWritable(char const* param, char const* provider);
+  std::shared_ptr<dmProviderInfo> getProviderByName(std::string const& s) const;
+  std::shared_ptr<dmProviderInfo> getProviderByObjectName(std::string const& s) const;
+
 private:
-  char const* getProvider(char const* query) const;
   void loadFromDir(std::string const& dir);
   void loadFile(std::string const& dir, char const* fname);
+  std::shared_ptr<dmProviderInfo> makeProviderInfo(char const* json);
+
 private:
   std::string m_modelDirectory;
 };

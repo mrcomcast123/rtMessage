@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "dmProviderInfo.h"
+#include "rtLog.h"
 
 dmProviderInfo::dmProviderInfo()
   : m_objectName()
@@ -34,4 +35,24 @@ void dmProviderInfo::setObjectName(std::string const& name)
 void dmProviderInfo::addProperty(dmPropertyInfo const& propInfo)
 {
   m_props.push_back(propInfo);
+}
+
+
+dmPropertyInfo
+dmProviderInfo::getPropertyInfo(char const* propertyName) const
+{
+  if (!propertyName)
+    return dmPropertyInfo();
+
+  std::string s(propertyName);
+  std::string::size_type idx = s.rfind('.');
+  if (idx != std::string::npos)
+    s = s.substr(idx + 1);
+
+  for (const dmPropertyInfo& info : m_props)
+  {
+    if (info.name() == s)
+      return info;
+  }
+  return dmPropertyInfo();
 }

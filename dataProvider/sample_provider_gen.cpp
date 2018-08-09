@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <iostream>
 #include "dmProviderHost.h"
 #include "dmProvider.h"
 #include <unistd.h>
@@ -46,21 +47,11 @@ protected:
   {
     if (param.name() == "Manufacturer")
     {
-      result.addValue(dmNamedValue(param.name(), getManufacturer()));
+      result.addValue(param, getManufacturer());
     }
     else if (param.name() == "ModelName")
     {
-      result.addValue(dmNamedValue(param.name(), getModelName()));
-    }
-    else if (param.name() == " ")
-    {
-      result.addValue(dmNamedValue(" ", " "), 1, "Parameter Not found");
-      printf("\n Parameter not found in datamodel \n");
-    }
-    else
-    {
-      result.addValue(dmNamedValue(param.name(), "dummy"));
-      printf("\n Yet to implement get for param %s\n", param.name().c_str());
+      result.addValue(param, getModelName());
     }
   }
 
@@ -69,18 +60,8 @@ protected:
     if (param.name() == "Manufacturer")
     {
       setManufacturer(param.name(), param.value().toString());
-      result.addValue(dmNamedValue(param.name(), param.value()));
+      result.addValue(param.info(), param.value());
     }
-    else if(param.name() == " ")
-    {
-      result.addValue(dmNamedValue(" ", " "), 1, "Parameter not found");
-    }
-    else if(param.name() == "nonwritable")
-    {
-      result.addValue(dmNamedValue(" ", " "), 1, "Parameter not writable");
-    }
-    else
-      result.addValue(dmNamedValue(param.name(), param.value()));
   }
 };
 

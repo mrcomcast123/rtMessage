@@ -34,6 +34,34 @@ public:
   {
     return str.size() >= suffix.size() && str.find(suffix, str.size() - suffix.size()) != str.npos;
   }
+
+  static bool isWildcard(char const* s)
+  {
+    if (!s)
+      return false;
+    return (s[strlen(s) -1 ] == '.');
+  }
+
+  static std::string trimWildcard(std::string const& s)
+  {
+    if (s.empty())
+      return s;
+
+    return (s[s.size() -1] == '.')
+      ? s.substr(0, s.size() -1)
+      : s;
+  }
+
+  static std::string trimProperty(std::string const& s)
+  {
+    std::string t;
+    std::string::size_type idx = s.rfind('.');
+    if (idx != std::string::npos)
+      t = s.substr(0, idx);
+    else
+      t = s;
+    return t;
+  }
 };
 
 #endif

@@ -13,8 +13,11 @@
  * limitations under the License.
  */
 #include <cstring>
+#include <iostream>
 
 #include "dmProvider.h"
+#include <rtError.h>
+#include <rtLog.h>
 
 dmProvider::dmProvider()
 {
@@ -28,19 +31,31 @@ void
 dmProvider::doGet(std::vector<dmPropertyInfo> const& params, std::vector<dmQueryResult>& result)
 {
   dmQueryResult temp;
+  temp.setStatus(RT_PROP_NOT_FOUND);
+
   for (auto const& propInfo : params)
   {
     auto itr = m_provider_functions.find(propInfo.name());
     if ((itr != m_provider_functions.end()) && (itr->second.getter != nullptr))
     {
       dmValue val = itr->second.getter();
-      temp.addValue(dmNamedValue(propInfo.name(), val));
+      temp.addValue(propInfo, val);
     }
     else
     {
       doGet(propInfo, temp);
     }
-    result.push_back(temp);
+
+    if (temp.status() == RT_PROP_NOT_FOUND)
+    {
+      // TODO
+      rtLog_Debug("property:%s not found", propInfo.name().c_str());
+    }
+    else
+    {
+      result.push_back(temp);
+    }
+
     temp.clear();
   }
 }

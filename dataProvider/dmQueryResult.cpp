@@ -13,21 +13,26 @@
  * limitations under the License.
  */
 #include "dmQueryResult.h"
+#include <rtError.h>
+#include <rtLog.h>
+
 #include <iterator>
 #include <cstring>
 #include <stdio.h>
 #include <iostream>
 #include <string>
 
+static const int kDefaultQueryResult = RT_OK;
+
 dmQueryResult::dmQueryResult()
-  : m_status(0)
+  : m_status(kDefaultQueryResult)
 {
 }
 
 void
 dmQueryResult::clear()
 {
-  m_status = 0;
+  m_status = kDefaultQueryResult;
   m_values.clear();
   m_statusMsg.clear();
 }
@@ -55,18 +60,22 @@ dmQueryResult::setStatusMsg(std::string statusmsg)
 }
 
 void
-dmQueryResult::addValue(dmNamedValue const& val, int code, char const* msg)
+dmQueryResult::addValue(dmPropertyInfo const& prop, dmValue const& val, int code, 
+  char const* message)
 {
-  if (m_status == 0 && code != 0)
-    m_status = code;
-  m_values.push_back(Param(code, msg, val));
-  if (msg)
-    setStatusMsg(std::string(msg));
+  m_status = code;
+  m_values.push_back(dmQueryResult::Param(code, message, val, prop));
+
+  if (message)
+  {
+    setStatusMsg(std::string(message));
+  }
 }
 
-dmQueryResult::Param::Param(int code, char const* msg, dmNamedValue const& val)
+dmQueryResult::Param::Param(int code, char const* msg, dmValue const& val, dmPropertyInfo const& info)
   : StatusCode(code)
   , Value(val)
+  , Info(info)
 {
   if (msg)
     StatusMessage = msg;

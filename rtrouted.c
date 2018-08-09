@@ -552,7 +552,7 @@ int main(int argc, char* argv[])
   int retval = flock(fd, LOCK_EX | LOCK_NB);
   if (retval != 0 && errno == EWOULDBLOCK)
   {
-    rtLog_Info("another instance of rtrouted is already running");
+    rtLog_Debug("another instance of rtrouted is already running");
     exit(12);
   }
 

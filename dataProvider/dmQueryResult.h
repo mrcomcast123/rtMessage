@@ -16,17 +16,25 @@
 #define __DM_QUERY_RESULT_H__
 
 #include "dmValue.h"
+#include "dmPropertyInfo.h"
+
 #include <vector>
+
+class dmProviderDatabase;
 
 class dmQueryResult
 {
+  friend class dmProviderDatabase;
+
 public:
   struct Param
   {
-    Param(int code, char const* msg, dmNamedValue const& val);
+    Param(int code, char const* msg, dmValue const& val, dmPropertyInfo const& info);
+
     int StatusCode;
     std::string StatusMessage;
-    dmNamedValue Value;
+    dmValue Value;
+    dmPropertyInfo Info;
   };
 
   dmQueryResult();
@@ -35,7 +43,8 @@ public:
   void merge(dmQueryResult const& resuls);
   void setStatus(int status);
   void setStatusMsg(std::string statusmsg);
-  void addValue(dmNamedValue const& val, int code = 0, char const* msg = nullptr);
+  void addValue(dmPropertyInfo const& prop, dmValue const& val,
+    int code = 0, char const* message = nullptr);
 
   inline int status() const
     { return m_status; }

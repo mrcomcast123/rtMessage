@@ -47,24 +47,33 @@ protected:
   {
     if (param.name() == "X_RDKCENTRAL-COM_UserName")
     {
-      result.addValue(dmNamedValue(param.name(), "xcam_user"));
-    }
-    else
-    {
-      printf("\n Yet to implement get for param %s\n", param.name().c_str());
-      result.addValue(dmNamedValue(param.name(), "dummy"));
+      result.addValue(param, "xcam_user");
     }
   }
 
+  //
+  // TODO
+  // This should be more like doGet
+  //      void doSet(dmPropertyInfo const& info, dmValue const& value, dmQueryResult& result);
+  //
   virtual void doSet(dmNamedValue const& param, dmQueryResult& result)
   {
     if (param.name() == "X_RDKCENTRAL-COM_NoiseLevel")
     {
       setNoiseLevel(param.name(), param.value().toString());
-      result.addValue(dmNamedValue(param.name(), param.value()));
+      result.addValue(param.info(), param.value());
     }
     else
-      result.addValue(dmNamedValue(param.name(), param.value()));
+      result.addValue(param.info(), param.value());
+  }
+};
+
+class EndpointProvider : public dmProvider
+{
+public:
+  EndpointProvider()
+  {
+    onGet("EndpointNumberofItems", []() -> dmValue { return 3; });
   }
 };
 
@@ -74,6 +83,7 @@ int main()
   host->start();
 
   host->registerProvider("Device.WiFi", std::unique_ptr<dmProvider>(new MyProvider()));
+  host->registerProvider("Device.WiFi.EndPoint", std::unique_ptr<dmProvider>(new EndpointProvider()));
 
   while (true)
   {

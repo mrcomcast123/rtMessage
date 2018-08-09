@@ -23,7 +23,9 @@
 #include <map>
 #include <iterator>
 #include <fstream>
+#include <sstream>
 #include <iomanip>
+#include <memory>
 
 
 #include "rtConnection.h"
@@ -34,10 +36,13 @@
 #include <cJSON.h>
 
 #include "dmUtility.h"
+#include "dmProviderInfo.h"
 
 namespace
 {
-  std::map<std::string, cJSON*> modelInfoDB;
+  using dmDatabase = std::map< std::string, std::shared_ptr<dmProviderInfo> >;
+
+  dmDatabase model_db;
 
   bool matches_object(char const* query, char const* obj)
   {
@@ -45,13 +50,13 @@ namespace
     int n = static_cast<int>((intptr_t) p - (intptr_t) query);
     return strncmp(query, obj, n) == 0;
   }
+
 }
 
 class dmQueryImpl : public dmQuery
 {
 public:
   dmQueryImpl()
-    : m_provider_name(nullptr)
   {
     rtConnection_Create(&m_con, "DMCLI", "tcp://127.0.0.1:10001");
 
@@ -74,20 +79,33 @@ public:
     }
   }
 
-  void dmRequestResponse(std::string& topic, std::string& parameter)
+  void makeRequest(std::string& topic, std::string& queryString)
   {
     rtMessage req;
     rtMessage_Create(&req);
     rtMessage_SetString(req, "method", m_operation.c_str());
-    rtMessage_SetString(req, "provider", m_provider_name);
+    rtMessage_SetString(req, "provider", m_providerInfo->providerName().c_str());
     rtMessage item;
     rtMessage_Create(&item);
-    rtMessage_SetString(item, "name", parameter.c_str());
+    rtMessage_SetString(item, "name", queryString.c_str());
     if (strcmp(m_operation.c_str(), "set") == 0)
       rtMessage_SetString(item, "value", m_value.c_str());
     rtMessage_SetMessage(req, "params", item);
     rtMessage res;
+
     rtError err = rtConnection_SendRequest(m_con, req, topic.c_str(), &res, 2000);
+    if ((err == RT_OK) && rtLog_IsLevelEnabled(RT_LOG_DEBUG))
+    {
+      char* p = nullptr;
+      uint32_t n = 0;
+      rtMessage_ToString(res, &p, &n);
+      if (p)
+      {
+        rtLog_Debug("res:%s", p);
+        free(p);
+      }
+    }
+
     if (err == RT_OK)
     {
       int32_t len;
@@ -95,24 +113,27 @@ public:
 
       for (int32_t i = 0; i < len; i++)
       {
-      rtMessage item;
-      rtMessage_GetMessageItem(res, "result", i, &item);
-      int status;
-      char const* param = nullptr;
-      char const* value = nullptr;
-      char const* status_msg = nullptr;
+        rtMessage item;
+        rtMessage_GetMessageItem(res, "result", i, &item);
+        int status;
+        char const* param = nullptr;
+        char const* value = nullptr;
+        char const* status_msg = nullptr;
 
-      if (rtMessage_GetString(item, "name", &param) != RT_OK)
-        rtLog_Error("failed to get 'name' from paramter");
-      if (rtMessage_GetString(item, "value", &value) != RT_OK)
-        rtLog_Error("failed to get 'value' from parameter");
-      if (rtMessage_GetInt32(item, "status", &status) != RT_OK)
-        rtLog_Error("failed to get 'status' from response");
-      if (rtMessage_GetString(item, "status_msg", &status_msg) != RT_OK)
-        rtLog_Error("failed to get 'status message' from response");
+        if (rtMessage_GetString(item, "name", &param) != RT_OK)
+          rtLog_Debug("failed to get 'name' from paramter");
+        if (rtMessage_GetString(item, "value", &value) != RT_OK)
+          rtLog_Debug("failed to get 'value' from parameter");
+        if (rtMessage_GetInt32(item, "status", &status) != RT_OK)
+          rtLog_Error("failed to get 'status' from response");
+        if (rtMessage_GetString(item, "status_msg", &status_msg) != RT_OK)
+          rtLog_Debug("no status message in response");
 
-      if (param != nullptr && value != nullptr)
-        m_results.addValue(dmNamedValue(param, dmValue(value)), status, status_msg);
+        if (param != nullptr && value != nullptr)
+        {
+          dmPropertyInfo propInfo = m_providerInfo->getPropertyInfo(param);
+          m_results.addValue(propInfo, dmValue(value));
+        }
       }
 
       rtMessage_Release(res);
@@ -122,18 +143,18 @@ public:
 
   virtual bool exec()
   {
-    if (!m_provider_name)
+    if (!m_providerInfo)
     {
       rtLog_Warn("Trying to execute a query without a provider");
       return false;
     }
 
     std::string topic("RDK.MODEL.");
-    topic += m_provider_name;
+    topic += m_providerInfo->providerName();
 
     rtLog_Debug("sending dm query : %s on topic :%s", m_query.c_str(), topic.c_str());
 
-    dmRequestResponse(topic, m_query);
+    makeRequest(topic, m_query);
 
     reset();
     return true;
@@ -143,9 +164,8 @@ public:
   {
     m_operation.clear();
     m_query.clear();
-    m_provider_name = nullptr;
     m_value.clear();
-    // m_count = 0;
+    m_providerInfo.reset();
   }
 
   virtual bool setQueryString(dmProviderOperation op, char const* s)
@@ -184,9 +204,9 @@ public:
     return m_results;
   }
 
-  void setProviderName(char const* provider_name)
+  void setProviderInfo(std::shared_ptr<dmProviderInfo> const& providerInfo)
   {
-    m_provider_name = provider_name;
+    m_providerInfo = providerInfo;
   }
 
 private:
@@ -195,8 +215,8 @@ private:
   std::string m_query;
   std::string m_value;
   std::string m_operation;
-  char const* m_provider_name;
   dmProviderDatabase *db;
+  std::shared_ptr<dmProviderInfo> m_providerInfo;
 
   // TODO: int m_count;
   // should use static counter or other way to inject json-rpc request/id
@@ -255,18 +275,21 @@ dmProviderDatabase::loadFile(std::string const& dir, char const* fname)
   std::vector<char> buff(length + 1, '\0');
   file.read(buff.data(), length);
 
-  cJSON* json = cJSON_Parse(buff.data());
-  if (!json)
+  // cJSON* name = cJSON_GetObjectItem(json, "name");
+  // modelInfoDB.insert(std::make_pair(name->valuestring, json));
+  std::shared_ptr<dmProviderInfo> providerInfo = makeProviderInfo(&buff[0]);
+  if (providerInfo)
   {
-    rtLog_Error("Failed to parse json from:%s. %s", path.c_str(), cJSON_GetErrorPtr());
+    rtLog_Info("model_db insert:%s", providerInfo->objectName().c_str());
+    model_db.insert(std::make_pair(providerInfo->objectName(), providerInfo));
   }
   else
   {
-    cJSON* name = cJSON_GetObjectItem(json, "name");
-    modelInfoDB.insert(std::make_pair(name->valuestring, json));
+    rtLog_Error("Failed to parse json from:%s. %s", path.c_str(), cJSON_GetErrorPtr());
   }
 }
 
+#if 0
 int
 dmProviderDatabase::isWritable(char const* param, char const* provider)
 {
@@ -292,21 +315,40 @@ dmProviderDatabase::isWritable(char const* param, char const* provider)
   }
   return 1;
 }
+#endif
 
-char const*
-dmProviderDatabase::getProvider(char const* query) const
+std::shared_ptr<dmProviderInfo>
+dmProviderDatabase::getProviderByObjectName(std::string const& s) const
 {
-  for (auto iter : modelInfoDB)
-  {
-    if (matches_object(query, iter.first.c_str()))
-    {
-      cJSON* obj = cJSON_GetObjectItem(iter.second, "provider");
-      return obj->valuestring;
-    }
-  }
-  return nullptr;
+  rtLog_Info("get provider by objectname:%s", s.c_str());
+
+  std::string objectName;
+  if (dmUtility::isWildcard(s.c_str()))
+    objectName = dmUtility::trimWildcard(s);
+  else
+    objectName = s;
+
+  auto itr = model_db.find(objectName);
+  if (itr == model_db.end())
+    rtLog_Debug("failed to find %s in model database", objectName.c_str());
+
+  return (itr != model_db.end())
+    ? itr->second
+    : std::shared_ptr<dmProviderInfo>();
 }
 
+std::shared_ptr<dmProviderInfo>
+dmProviderDatabase::getProviderByName(std::string const& s) const
+{
+  for (auto itr : model_db)
+  {
+    if (itr.second->providerName() == s)
+      return itr.second;
+  }
+  return std::shared_ptr<dmProviderInfo>();
+}
+
+#if 0
 char const*
 dmProviderDatabase::getProviderFromObject(char const* object) const
 {
@@ -320,7 +362,9 @@ dmProviderDatabase::getProviderFromObject(char const* object) const
   }
   return nullptr;
 }
+#endif
 
+#if 0
 std::vector<char const*>
 dmProviderDatabase::getParameters(char const* provider) const
 {
@@ -342,6 +386,7 @@ dmProviderDatabase::getParameters(char const* provider) const
   }
   return parameters;
 }
+#endif
 
 dmQuery*
 dmProviderDatabase::createQuery() const
@@ -350,29 +395,90 @@ dmProviderDatabase::createQuery() const
 }
 
 dmQuery* 
-dmProviderDatabase::createQuery(dmProviderOperation op, char const* query_string) const
+dmProviderDatabase::createQuery(dmProviderOperation op, char const* queryString) const
 {
-  std::string querystr(query_string);
-  char const* provider_name = nullptr;
+  if (!queryString)
+    return nullptr;
 
-  if (dmUtility::has_suffix(querystr, "."))
-  {
-    querystr.erase(querystr.size() - 1);
-    provider_name = getProviderFromObject(querystr.c_str());
-  }
+  std::string objectName(queryString);
+  if (dmUtility::isWildcard(objectName.c_str()))
+    objectName = dmUtility::trimWildcard(objectName);
   else
+    objectName = dmUtility::trimProperty(objectName);
+
+  std::shared_ptr<dmProviderInfo> providerInfo = getProviderByObjectName(objectName);
+
+  if (!providerInfo)
   {
-    provider_name = getProvider(query_string);
-  }
-  if (!provider_name)
-  {
-    rtLog_Warn("failed to find provider for query string:%s", query_string);
+    rtLog_Warn("failed to find provider for query string:%s", objectName.c_str());
     return nullptr;
   }
 
   dmQueryImpl* query = new dmQueryImpl();
-  bool status = query->setQueryString(op, query_string);
+  bool status = query->setQueryString(op, queryString);
   if (status)
-    query->setProviderName(provider_name);
+    query->setProviderInfo(providerInfo);
   return query;
+}
+
+std::shared_ptr<dmProviderInfo>
+dmProviderDatabase::makeProviderInfo(char const* s)
+{
+  std::shared_ptr<dmProviderInfo> providerInfo;
+
+  cJSON* json = cJSON_Parse(s);
+  if (!json)
+    return providerInfo;
+
+  providerInfo.reset(new dmProviderInfo());
+
+  cJSON* p = nullptr;
+  if ((p = cJSON_GetObjectItem(json, "name")) != nullptr)
+    providerInfo->setObjectName(p->valuestring);
+  if ((p = cJSON_GetObjectItem(json, "provider")) != nullptr)
+    providerInfo->setProviderName(p->valuestring);
+
+  // rtLog_Debug("adding object:%s", providerInfo->objectName().c_str());
+  if ((p = cJSON_GetObjectItem(json, "properties")) != nullptr)
+  {
+    for (int i = 0, n = cJSON_GetArraySize(p); i < n; ++i)
+    {
+      // TODO: make this vector of pointers or shared pointers
+      // std::shared_ptr<dmPropertyInfo> prop(new dmPropertyInfo());
+      dmPropertyInfo prop;
+
+      cJSON* props = cJSON_GetArrayItem(p, i);
+      if (!props)
+      {
+        rtLog_Error("failed to get %d item from properties array", i);
+        continue;
+      }
+
+      cJSON* q = nullptr;
+      if ((q = cJSON_GetObjectItem(props, "name")) != nullptr)
+      {
+        prop.setName(q->valuestring);
+
+        std::stringstream buff;
+        buff << providerInfo->objectName();
+        buff << ".";
+        buff << q->valuestring;
+        prop.setFullName(buff.str());
+      }
+      if ((q = cJSON_GetObjectItem(props, "type")) != nullptr)
+        prop.setType(dmValueType_fromString(q->valuestring));
+      if ((q = cJSON_GetObjectItem(props, "optional")) != nullptr)
+        prop.setIsOptional(p->type == cJSON_True);
+      if ((q = cJSON_GetObjectItem(props, "writable")) != nullptr)
+        prop.setIsWritable(p->type == cJSON_True);
+
+      // rtLog_Info("add prop:%s", prop.name().c_str());
+      providerInfo->addProperty(prop);
+    }
+  }
+
+  if (json)
+    cJSON_Delete(json);
+
+  return providerInfo;
 }

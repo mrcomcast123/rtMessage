@@ -19,25 +19,8 @@
 #include <stdint.h>
 #include <memory>
 #include <string>
-
-enum dmValueType
-{
-  dmValueType_Int8,
-  dmValueType_Int16,
-  dmValueType_Int32,
-  dmValueType_Int64,
-  dmValueType_UInt8,
-  dmValueType_UInt16,
-  dmValueType_UInt32,
-  dmValueType_UInt64,
-  dmValueType_String,
-  dmValueType_Single,
-  dmValueType_Double,
-  dmValueType_Unknown
-};
-
-dmValueType dmValueType_fromString(char const* s);
-char const* dmValueType_toString(dmValueType t);
+#include "dmValueType.h"
+#include "dmPropertyInfo.h"
 
 class dmValue
 {
@@ -93,21 +76,24 @@ private:
 class dmNamedValue
 {
 public:
-  dmNamedValue(std::string const& name, dmValue const& value)
-    : m_name(name)
+  dmNamedValue(dmPropertyInfo prop, dmValue const& value)
+    : m_prop(prop)
     , m_value(value) 
   {
   }
 
+  inline dmPropertyInfo info() const
+    { return m_prop; }
+
   inline std::string const& name() const
-    { return m_name; }
+    { return m_prop.name(); }
 
   inline dmValue const& value() const
     { return m_value; }
 
 private:
-  std::string m_name;
-  dmValue m_value;
+  dmPropertyInfo  m_prop;
+  dmValue         m_value;
 };
 
 #endif

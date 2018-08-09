@@ -61,6 +61,7 @@ void rtLog_SetLevel(rtLogLevel l);
 void rtLogSetLogHandler(rtLogHandler logHandler);
 const char* rtLogLevelToString(rtLogLevel level);
 rtLogLevel  rtLogLevelFromString(const char* s);
+int rtLog_IsLevelEnabled(rtLogLevel level);
 
 rtThreadId rtThreadGetCurrentId();
 

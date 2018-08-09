@@ -145,22 +145,38 @@ int main(int argc, char *argv[])
     }
     else
     {
-      // TODO: format results nicely
       dmQueryResult const& results = query->results();
-      std::cout << "result_code:" << results.status() << std::endl;
-      if (!results.status())
+      if (results.status() != 0)
+        std::cout << "ERROR:" << results.status() << std::endl;
+
+      // TODO: at this point, tool should probably exit(results.status()) to that
+      // shell scripts can check the return code
+
+      if (results.status() == 0)
       {
-       for (auto const& param: results.values())
-       {
-         std::cout << param.Value.name();
-         std::cout << " = ";
-         std::cout << param.Value.value().toString();
-         std::cout << std::endl;
-       }
-       std::cout << std::endl;
+        size_t maxParamLength = 0;
+        for (auto const& param : results.values())
+        {
+          if (param.Info.fullName().length() > maxParamLength)
+            maxParamLength = param.Info.fullName().length();
+        }
+
+        std::cout << std::endl;
+        for (auto const& param: results.values())
+        {
+          std::cout << "    ";
+          std::cout.width(maxParamLength);
+          std::cout << param.Info.fullName();
+          std::cout << " = ";
+          std::cout << param.Value.toString();
+          std::cout << std::endl;
+        }
+        std::cout << std::endl;
       }
       else
+      {
         std::cout << "Error: " << results.statusMsg() << std::endl;
+      }
     } 
 
     begin = end == std::string::npos ? std::string::npos : end + 1;

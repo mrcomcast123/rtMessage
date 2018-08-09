@@ -12,38 +12,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "dmPropertyInfo.h"
+#ifndef __DM_VALUE_TYPE_H__
+#define __DM_VALUE_TYPE_H__
 
-dmPropertyInfo::dmPropertyInfo()
-  : m_name()
-  , m_type(dmValueType_Unknown)
-  , m_optional(false)
-  , m_writable(false)
+enum dmValueType
 {
-}
+  dmValueType_Int8,
+  dmValueType_Int16,
+  dmValueType_Int32,
+  dmValueType_Int64,
+  dmValueType_UInt8,
+  dmValueType_UInt16,
+  dmValueType_UInt32,
+  dmValueType_UInt64,
+  dmValueType_String,
+  dmValueType_Single,
+  dmValueType_Double,
+  dmValueType_Unknown
+};
 
-void dmPropertyInfo::setName(std::string const& name)
-{
-  m_name = name;
-}
+dmValueType
+dmValueType_fromString(char const* s);
 
-void dmPropertyInfo::setType(dmValueType t)
-{
-  m_type = t;
-}
+char const*
+dmValueType_toString(dmValueType t);
 
-void dmPropertyInfo::setIsOptional(bool b)
-{
-  m_optional = b;
-}
-
-void dmPropertyInfo::setIsWritable(bool b)
-{
-  m_writable = b;
-}
-
-void
-dmPropertyInfo::setFullName(std::string const& name)
-{
-  m_full_name = name;
-}
+#endif

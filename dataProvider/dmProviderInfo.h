@@ -26,6 +26,7 @@ class dmPropertyInfo;
 class dmProviderInfo
 {
   friend class dmProviderDatabase;
+
 public:
   inline std::string const& objectName() const
     { return m_objectName; }
@@ -35,6 +36,8 @@ public:
 
   inline std::vector<dmPropertyInfo> const& properties() const
     { return m_props; }
+
+  dmPropertyInfo getPropertyInfo(char const* s) const;
 
 private:
   dmProviderInfo();

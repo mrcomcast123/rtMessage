@@ -27,6 +27,17 @@
 
 #include "dmUtility.h"
 
+namespace
+{
+
+  dmNamedValue
+  makeNamedValue(dmPropertyInfo const& propInfo, char const* valueAsString)
+  {
+    // TODO conver to propert type from string
+    return dmNamedValue(propInfo, dmValue(valueAsString));
+  }
+}
+
 class dmProviderHostImpl : public dmProviderHost
 {
 public:
@@ -53,6 +64,7 @@ private:
     topic << name;
     std::string s = topic.str();
 
+    rtLog_Info("register provider with topic:%s", s.c_str());
     rtError e = rtConnection_AddListener(m_con, s.c_str(), &dmProviderHostImpl::requestHandler, this);
     if (e != RT_OK)
     {
@@ -103,24 +115,30 @@ private:
 
     rtMessage req;
     rtError e = rtMessage_FromBytes(&req, buff, n);
-    printf("\n Request received %s", buff);
+    rtLog_Debug("req: %s", buff);
 
     if (e != RT_OK)
     {
       rtLog_Warn("failed to decode datamodel request");
+      // TODO: return error
     }
 
     dmProviderHostImpl* host = reinterpret_cast<dmProviderHostImpl *>(closure);
+    if (!host)
+    {
+      rtLog_Error("dmProviderHost is null");
+      // TODO: return error
+    }
 
     std::vector<dmQueryResult> results;
     dmProviderOperation op = host->decodeOperation(req);
 
     if (op == dmProviderOperation_Get)
     {
-      std::string provider_name;
+      std::string providerName;
       std::vector<dmPropertyInfo> params;
-      host->decodeGetRequest(req, provider_name, params);
-      host->doGet(provider_name, params, results);
+      host->decodeGetRequest(req, providerName, params);
+      host->doGet(providerName, params, results);
     }
     else if (op == dmProviderOperation_Set)
     {
@@ -147,120 +165,89 @@ private:
       return dmProviderOperation_Get;
   }
 
-   void decodeGetRequest(rtMessage req, std::string& name, std::vector<dmPropertyInfo>& params)
+  void decodeGetRequest(rtMessage req, std::string& name, std::vector<dmPropertyInfo>& params)
   {
-    char const* provider_name = nullptr;
+    char const* providerName = nullptr;
     dmPropertyInfo propertyInfo;
 
-    rtMessage_GetString(req, "provider", &provider_name);
-    if (provider_name)
-      name = provider_name;
+    rtMessage_GetString(req, "provider", &providerName);
+    if (providerName)
+      name = providerName;
 
     rtMessage item;
     rtMessage_GetMessage(req, "params", &item);
 
-    char const* property_name;
-    rtMessage_GetString(item, "name", &property_name);
+    char const* propertyName = nullptr;
+    rtMessage_GetString(item, "name", &propertyName);
 
-    std::vector<char const*> param_container = db->getParameters(provider_name);
-
-    if (dmUtility::has_suffix(property_name, "."))
+    std::shared_ptr<dmProviderInfo> objectInfo = db->getProviderByName(providerName);
+    if (objectInfo)
     {
-      for (auto itr : param_container)
-      {
-        std::string param(itr);
-        std::string fullparam = property_name + param;
-        char* parameter = new char[256];
-        dmUtility::splitQuery(fullparam.c_str(), parameter);
-        propertyInfo.setName(parameter);
-        params.push_back(propertyInfo);
-        delete [] parameter;
-      }
-    }
-    else
-    {
-      char* param = new char[256];
-      dmUtility::splitQuery(property_name, param);
-      if (std::find(param_container.begin(), param_container.end(), std::string(param)) != param_container.end())
-      {
-        propertyInfo.setName(param);
-      }
+      if (dmUtility::isWildcard(propertyName))
+        params = objectInfo->properties();
       else
-      {
-        propertyInfo.setName(" ");
-      }
-      params.push_back(propertyInfo);
-      delete [] param;
+        params.push_back(objectInfo->getPropertyInfo(propertyName));
     }
+
     rtMessage_Release(item);
   }
 
-  void decodeSetRequest(rtMessage req, std::string& name, std::vector<dmNamedValue>& params)
+  void decodeSetRequest(rtMessage req, std::string& providerName, std::vector<dmNamedValue>& params)
   {
-    char const* provider_name = nullptr;
-    rtMessage_GetString(req, "provider", &provider_name);
-    if (provider_name)
-      name = provider_name;
+    std::shared_ptr<dmProviderInfo> objectInfo = db->getProviderByName(providerName);
+    std::vector<dmPropertyInfo> props = objectInfo->properties();
 
-    std::vector<char const*> param_container = db->getParameters(provider_name);
+    // TODO: need to handle multiple sets in single call
 
     rtMessage item;
     rtMessage_GetMessage(req, "params", &item);
 
-    char const* property_name;
-    rtMessage_GetString(item, "name", &property_name);
+    char const* name = nullptr;
+    rtMessage_GetString(item, "name", &name);
 
-    char* param = new char[256];
-    dmUtility::splitQuery(property_name, param);
+    char const* value = nullptr;
+    rtMessage_GetString(item, "value", &value);
 
-    char const* property_value;
-    rtMessage_GetString(item, "value", &property_value);
+    auto itr = std::find_if(
+      props.begin(),
+      props.end(),
+      [name](dmPropertyInfo const& info) { return info.name() == name; });
 
-    if (std::find(param_container.begin(), param_container.end(), std::string(param)) != param_container.end())
-    {
-      if (db->isWritable(param, provider_name))
-      {
-        dmNamedValue namedValue(param, property_value);
-        params.push_back(namedValue);
-      }
-      else
-      {
-        dmNamedValue namedValue("nonwritable", " ");
-        params.push_back(namedValue);
-      }
-    }
-    else
-    {
-      dmNamedValue namedValue(" ", " ");
-      params.push_back(namedValue);
-    }
+    if (itr != props.end())
+      params.push_back(makeNamedValue(*itr, value));
 
     rtMessage_Release(item);
-    delete [] param;
   }
 
   void encodeResult(rtMessage& res, std::vector<dmQueryResult> const& resultSet)
   {
-    for (auto paramresult : resultSet)
+    for (dmQueryResult const& result : resultSet)
     {
       rtMessage msg;
       rtMessage_Create(&msg);
-      int status_code = paramresult.status();
-      std::string status_msg = paramresult.statusMsg();
-      for (auto const& result : paramresult.values())
+      int statusCode = result.status();
+      std::string statusMessage = result.statusMsg();
+
+      for (dmQueryResult::Param const& param : result.values())
       {
-        if (result.StatusCode != 0 && status_code == 0)
-          status_code = result.StatusCode;
+        // I don't like how we do this. This is trying to set the overall status of the
+        // request to the first error it sees. For example, if we query two params, and
+        // one is ok and the other is an error, the statuscode is set to the second error
+        // code. If there are two errors it'll set it to the first. We should introduce an
+        // top-level error code in the response message. possibly something that indicates
+        // that there's partial failure.
+        if (param.StatusCode != 0 && statusCode == 0)
+          statusCode = param.StatusCode;
 
-        if(!result.StatusMessage.empty())
-          status_msg = result.StatusMessage;
+        if (statusMessage.empty() && !param.StatusMessage.empty())
+          statusMessage = param.StatusMessage;
 
-        dmNamedValue const& val = result.Value;
-        rtMessage_SetString(msg, "name", val.name().c_str());
-        rtMessage_SetString(msg, "value", val.value().toString().c_str());
+        rtMessage_SetString(msg, "name", param.Info.fullName().c_str());
+        rtMessage_SetString(msg, "value", param.Value.toString().c_str());
       }
-      rtMessage_SetInt32(msg, "status", status_code);
-      rtMessage_SetString(msg, "status_msg", status_msg.c_str());
+
+      rtMessage_SetInt32(msg, "status", statusCode);
+      rtMessage_SetString(msg, "status_msg", statusMessage.c_str());
       rtMessage_AddMessage(res, "result", msg);
       rtMessage_Release(msg);
     }
@@ -284,10 +271,18 @@ dmProviderHost::create()
 bool
 dmProviderHost::registerProvider(char const* object, std::unique_ptr<dmProvider> provider)
 {
-  m_providername = db->getProviderFromObject(object);
-  bool b = providerRegistered(m_providername);
-  if (b)
-    m_providers.insert(std::make_pair(m_providername, std::move(provider)));
+  bool b = false;
+  std::shared_ptr<dmProviderInfo> objectInfo = db->getProviderByObjectName(object); 
+  if (objectInfo)
+  {
+    b = providerRegistered(objectInfo->providerName());
+    if (b)
+      m_providers.insert(std::make_pair(objectInfo->providerName(), std::move(provider)));
+  }
+  else
+  {
+    rtLog_Error("failed to find provider info in database for object:%s", object);
+  }
   return b;
 }
 
