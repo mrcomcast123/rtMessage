@@ -35,10 +35,10 @@ public:
 
 protected:
   virtual void doGet(dmPropertyInfo const& param, dmQueryResult& result);
-  virtual void doSet(dmNamedValue const& param, dmQueryResult& result);
+  virtual void doSet(dmPropertyInfo const& info, dmValue const& value, dmQueryResult& result);
 
   using getter_function = std::function<dmValue (void)>;
-  using setter_function = std::function<void (dmNamedValue const& value, dmQueryResult& result)>;
+  using setter_function = std::function<void (dmValue const& value)>;
 
   void onGet(std::string const& propertyName, getter_function func);
   void onSet(std::string const& propertyName, setter_function func);

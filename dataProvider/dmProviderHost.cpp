@@ -142,10 +142,10 @@ private:
     }
     else if (op == dmProviderOperation_Set)
     {
-      std::string provider_name;
+      std::string providerName;
       std::vector<dmNamedValue> params;
-      host->decodeSetRequest(req, provider_name, params);
-      host->doSet(provider_name, params, results);
+      host->decodeSetRequest(req, providerName, params);
+      host->doSet(providerName, params, results);
     }
 
     rtMessage res;
@@ -180,41 +180,71 @@ private:
     char const* propertyName = nullptr;
     rtMessage_GetString(item, "name", &propertyName);
 
+    rtLog_Debug("decodeGetRequest property name=%s\n", (propertyName != nullptr ? propertyName : ""));
+
     std::shared_ptr<dmProviderInfo> objectInfo = db->getProviderByName(providerName);
     if (objectInfo)
     {
+      rtLog_Debug("decodeGetRequest object found %s", providerName);
+
       if (dmUtility::isWildcard(propertyName))
         params = objectInfo->properties();
       else
         params.push_back(objectInfo->getPropertyInfo(propertyName));
     }
+    else
+    {
+      rtLog_Debug("decodeGetRequest object not found %s", providerName);
+    }
 
     rtMessage_Release(item);
   }
 
-  void decodeSetRequest(rtMessage req, std::string& providerName, std::vector<dmNamedValue>& params)
+  void decodeSetRequest(rtMessage req, std::string& name, std::vector<dmNamedValue>& params)
   {
-    std::shared_ptr<dmProviderInfo> objectInfo = db->getProviderByName(providerName);
-    std::vector<dmPropertyInfo> props = objectInfo->properties();
+    char const* providerName = nullptr;
+
+    rtMessage_GetString(req, "provider", &providerName);
+    if (providerName)
+      name = providerName;
 
     // TODO: need to handle multiple sets in single call
 
     rtMessage item;
     rtMessage_GetMessage(req, "params", &item);
 
-    char const* name = nullptr;
-    rtMessage_GetString(item, "name", &name);
+    char const* propertyName = nullptr;
+    rtMessage_GetString(item, "name", &propertyName);
 
     char const* value = nullptr;
     rtMessage_GetString(item, "value", &value);
 
-    auto itr = std::find_if(
-      props.begin(),
-      props.end(),
-      [name](dmPropertyInfo const& info) { return info.name() == name; });
+    rtLog_Debug("decoderSetRequest property name=%s value=%s\n", (propertyName != nullptr ? propertyName : ""), (value != nullptr ? value : ""));
+    std::shared_ptr<dmProviderInfo> objectInfo = db->getProviderByName(providerName);
 
-    if (itr != props.end())
-      params.push_back(makeNamedValue(*itr, value));
+    if (objectInfo)
+    {
+      rtLog_Debug("decodeSetRequest object found %s", propertyName);
+
+      std::string propertyLastName = dmUtility::trimPropertyName(propertyName);
+
+      std::vector<dmPropertyInfo> props = objectInfo->properties();
+
+      auto itr = std::find_if(
+        props.begin(),
+        props.end(),
+        [propertyLastName](dmPropertyInfo const& info) { 
+          rtLog_Debug("decodeSetRequest find_if %s compare to %s = %d\n", info.name().c_str(), propertyLastName.c_str(), (int)(info.name() == propertyLastName));
+          return info.name() == propertyLastName; 
+        });
+
+      if (itr != props.end())
+        params.push_back(makeNamedValue(*itr, value));
+    }
+    else
+    {
+      rtLog_Debug("decodeSetRequest object not found %s", providerName);
+    }
 
     rtMessage_Release(item);
   }
@@ -293,7 +323,12 @@ dmProviderHost::doGet(std::string const& providerName, std::vector<dmPropertyInf
   auto itr = m_providers.find(providerName);
   if (itr != m_providers.end())
   {
+    rtLog_Debug("dmProviderHost::doGet %s found", providerName.c_str());
     itr->second->doGet(params, result);
+  }
+  else
+  {
+    rtLog_Debug("dmProviderHost::doGet %s not found", providerName.c_str());
   }
 }
 
@@ -304,6 +339,11 @@ dmProviderHost::doSet(std::string const& providerName, std::vector<dmNamedValue>
   auto itr = m_providers.find(providerName);
   if (itr != m_providers.end())
   {
+    rtLog_Debug("dmProviderHost::doSet %s found", providerName.c_str());
     itr->second->doSet(params, result);
+  }
+  else
+  {
+    rtLog_Debug("dmProviderHost::doSet %s not found", providerName.c_str());
   }
 }

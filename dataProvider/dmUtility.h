@@ -62,6 +62,17 @@ public:
       t = s;
     return t;
   }
+
+  static std::string trimPropertyName(std::string const &s)
+  {
+    std::string t;
+    std::string::size_type idx = s.rfind('.');
+    if (idx != std::string::npos)
+      t = s.substr(idx + 1);
+    else
+      t = s;
+    return t;
+  }
 };
 
 #endif
