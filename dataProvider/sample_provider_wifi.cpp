@@ -14,13 +14,16 @@
  */
 #include "dmProviderHost.h"
 #include "dmProvider.h"
+#include <rtLog.h>
 #include <unistd.h>
 
 class MyProvider : public dmProvider
 {
 public:
-  MyProvider()
+  MyProvider() : m_noiseLevel("10dB"), m_userName("xcam_user")
   {
+    rtLog_Debug("MyProvider::CTOR");
+
     // use lambda for simple stuff
     onGet("X_RDKCENTRAL-COM_IPv4Address", []() -> dmValue {
       return "127.0.0.1";
@@ -28,44 +31,45 @@ public:
 
     // can use member function
     onGet("X_RDKCENTRAL-COM_NoiseLevel", std::bind(&MyProvider::getNoiseLevel, this));
+    onSet("X_RDKCENTRAL-COM_NoiseLevel", std::bind(&MyProvider::setNoiseLevel, this, std::placeholders::_1));
   }
 
 private:
   dmValue getNoiseLevel()
   {
-    return "10dB";
+    rtLog_Debug("MyProvider::getNoiseLevel %s\n", m_noiseLevel.c_str());
+    return m_noiseLevel.c_str();
   }
 
-  void setNoiseLevel(const std::string& name, const std::string& value)
+  void setNoiseLevel(dmValue const& value)
   {
-    printf("\nSet %s as %s\n", name.c_str(), value.c_str());
+    rtLog_Debug("MyProvider::setNoiseLevel %s\n", value.toString().c_str());
+    m_noiseLevel = value.toString();
   }
 
 protected:
   // override the basic get and use ladder if/else
   virtual void doGet(dmPropertyInfo const& param, dmQueryResult& result)
   {
+    rtLog_Debug("MyProvider::doGet %s\n", param.name().c_str());
     if (param.name() == "X_RDKCENTRAL-COM_UserName")
     {
-      result.addValue(param, "xcam_user");
+      result.addValue(param, m_userName);
     }
   }
 
-  //
-  // TODO
-  // This should be more like doGet
-  //      void doSet(dmPropertyInfo const& info, dmValue const& value, dmQueryResult& result);
-  //
-  virtual void doSet(dmNamedValue const& param, dmQueryResult& result)
+  virtual void doSet(dmPropertyInfo const& info, dmValue const& value, dmQueryResult& result)
   {
-    if (param.name() == "X_RDKCENTRAL-COM_NoiseLevel")
+    rtLog_Debug("MyProvider::doSet %s: %s\n", info.name().c_str(), value.toString().c_str());
+    if (info.name() == "X_RDKCENTRAL-COM_UserName")
     {
-      setNoiseLevel(param.name(), param.value().toString());
-      result.addValue(param.info(), param.value());
+      m_userName = value.toString();
+      result.addValue(info, value);
     }
-    else
-      result.addValue(param.info(), param.value());
   }
+private:
+  std::string m_noiseLevel;
+  std::string m_userName;
 };
 
 class EndpointProvider : public dmProvider

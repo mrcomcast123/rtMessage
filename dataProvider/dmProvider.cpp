@@ -70,24 +70,37 @@ void
 dmProvider::doSet(std::vector<dmNamedValue> const& params, std::vector<dmQueryResult>& result)
 {
   dmQueryResult temp;
+  temp.setStatus(RT_PROP_NOT_FOUND);
+
   for (auto const& value : params)
   {
     auto itr = m_provider_functions.find(value.name());
     if ((itr != m_provider_functions.end()) && (itr->second.setter != nullptr))
     {
-      itr->second.setter(value, temp);
+      itr->second.setter(value.value());
+      temp.addValue(value.info(), value.value());
     }
     else
     {
-      doSet(value, temp);
+      doSet(value.info(), value.value(), temp);
     }
-    result.push_back(temp);
+
+    if (temp.status() == RT_PROP_NOT_FOUND)
+    {
+      // TODO
+      rtLog_Debug("property:%s not found", value.name().c_str());
+    }
+    else
+    {
+      result.push_back(temp);
+    }
+
     temp.clear();
   }
 }
 
 void
-dmProvider::doSet(dmNamedValue const& /*param*/, dmQueryResult& /*result*/)
+dmProvider::doSet(dmPropertyInfo const& /*info*/, dmValue const& /*value*/, dmQueryResult& /*result*/)
 {
   // EMPTY: overridden by the user 
 }
