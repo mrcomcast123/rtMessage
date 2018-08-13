@@ -186,11 +186,27 @@ private:
     if (objectInfo)
     {
       rtLog_Debug("decodeGetRequest object found %s", providerName);
+      if(objectInfo->isList())
+      {
+        uint32_t index;
+        std::string indexlessPropertyName;
+        dmUtility::parseListProperty(propertyName, index, indexlessPropertyName);
 
-      if (dmUtility::isWildcard(propertyName))
-        params = objectInfo->properties();
+        if (dmUtility::isWildcard(indexlessPropertyName.c_str()))
+          params = objectInfo->properties();
+        else
+          params.push_back(objectInfo->getPropertyInfo(indexlessPropertyName.c_str()));
+        
+        for(int i = 0; i < (int)params.size(); ++i)
+          params[i].setIndex(index-1);//index from 1 based to 0 based
+      }
       else
-        params.push_back(objectInfo->getPropertyInfo(propertyName));
+      {
+        if (dmUtility::isWildcard(propertyName))
+          params = objectInfo->properties();
+        else
+          params.push_back(objectInfo->getPropertyInfo(propertyName));
+      }
     }
     else
     {
@@ -226,7 +242,18 @@ private:
     {
       rtLog_Debug("decodeSetRequest object found %s", propertyName);
 
-      std::string propertyLastName = dmUtility::trimPropertyName(propertyName);
+      std::string propertyLastName;
+      uint32_t index;
+
+      if(objectInfo->isList())
+      {
+        std::string indexlessPropertyName;
+        dmUtility::parseListProperty(propertyName, index, indexlessPropertyName);
+        
+        propertyLastName = dmUtility::trimPropertyName(indexlessPropertyName);
+      }
+      else
+        propertyLastName = dmUtility::trimPropertyName(propertyName);
 
       std::vector<dmPropertyInfo> props = objectInfo->properties();
 
@@ -239,7 +266,12 @@ private:
         });
 
       if (itr != props.end())
+      {
+        if(objectInfo->isList())
+          itr->setIndex(index-1);
         params.push_back(makeNamedValue(*itr, value));
+
+      }
     }
     else
     {

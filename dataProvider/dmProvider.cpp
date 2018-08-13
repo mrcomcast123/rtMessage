@@ -38,8 +38,7 @@ dmProvider::doGet(std::vector<dmPropertyInfo> const& params, std::vector<dmQuery
     auto itr = m_provider_functions.find(propInfo.name());
     if ((itr != m_provider_functions.end()) && (itr->second.getter != nullptr))
     {
-      dmValue val = itr->second.getter();
-      temp.addValue(propInfo, val);
+      itr->second.getter(propInfo, temp);
     }
     else
     {
@@ -77,8 +76,7 @@ dmProvider::doSet(std::vector<dmNamedValue> const& params, std::vector<dmQueryRe
     auto itr = m_provider_functions.find(value.name());
     if ((itr != m_provider_functions.end()) && (itr->second.setter != nullptr))
     {
-      itr->second.setter(value.value());
-      temp.addValue(value.info(), value.value());
+      itr->second.setter(value.info(), value.value(), temp);
     }
     else
     {
@@ -140,4 +138,9 @@ dmProvider::onSet(std::string const& propertyName, setter_function func)
     funcs.getter = nullptr;
     m_provider_functions.insert(std::make_pair(propertyName, funcs));
   }
+}
+
+size_t dmProvider::getListSize()
+{
+  return 0;
 }

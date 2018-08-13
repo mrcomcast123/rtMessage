@@ -19,6 +19,7 @@ dmPropertyInfo::dmPropertyInfo()
   , m_type(dmValueType_Unknown)
   , m_optional(false)
   , m_writable(false)
+  , m_index(0)
 {
 }
 
@@ -42,8 +43,12 @@ void dmPropertyInfo::setIsWritable(bool b)
   m_writable = b;
 }
 
-void
-dmPropertyInfo::setFullName(std::string const& name)
+void dmPropertyInfo::setFullName(std::string const& name)
 {
   m_full_name = name;
+}
+
+void dmPropertyInfo::setIndex(uint32_t i)
+{
+  m_index = i;
 }
