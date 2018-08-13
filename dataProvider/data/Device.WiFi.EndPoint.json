@@ -4,6 +4,10 @@
   "is_list" : true,
   "properties":
     [
+      {"name": "SSID", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "SecurityType", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "Channel", "type": "string", "optional": false, "writable": false, "version": "2.0"},
+      {"name": "Mode", "type": "string", "optional": false, "writable": false, "version": "2.0"},
       {"name": "Status", "type": "string", "optional": false, "writable": false, "version": "2.0"}
     ]
 }

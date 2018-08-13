@@ -34,15 +34,16 @@ public:
   virtual void doSet(std::vector<dmNamedValue> const& params, std::vector<dmQueryResult>& result);
 
 protected:
-  virtual void doGet(dmPropertyInfo const& param, dmQueryResult& result);
+  virtual void doGet(dmPropertyInfo const& info, dmQueryResult& result);
   virtual void doSet(dmPropertyInfo const& info, dmValue const& value, dmQueryResult& result);
 
-  using getter_function = std::function<dmValue (void)>;
-  using setter_function = std::function<void (dmValue const& value)>;
+  using getter_function = std::function<void (dmPropertyInfo const& info, dmQueryResult& result)>;
+  using setter_function = std::function<void (dmPropertyInfo const& info, dmValue const& value, dmQueryResult& result)>;
 
   void onGet(std::string const& propertyName, getter_function func);
   void onSet(std::string const& propertyName, setter_function func);
 
+  virtual size_t getListSize();
 protected:
   std::string m_name;
 

@@ -401,10 +401,14 @@ dmProviderDatabase::createQuery(dmProviderOperation op, char const* queryString)
     return nullptr;
 
   std::string objectName(queryString);
+
   if (dmUtility::isWildcard(objectName.c_str()))
     objectName = dmUtility::trimWildcard(objectName);
   else
     objectName = dmUtility::trimProperty(objectName);
+
+  if (dmUtility::isListIndex(objectName.c_str()))
+    objectName = dmUtility::trimProperty(objectName);//trim again to remove index
 
   std::shared_ptr<dmProviderInfo> providerInfo = getProviderByObjectName(objectName);
 
@@ -437,6 +441,8 @@ dmProviderDatabase::makeProviderInfo(char const* s)
     providerInfo->setObjectName(p->valuestring);
   if ((p = cJSON_GetObjectItem(json, "provider")) != nullptr)
     providerInfo->setProviderName(p->valuestring);
+  if ((p = cJSON_GetObjectItem(json, "is_list")) != nullptr)
+    providerInfo->setIsList(p->type == cJSON_True);
 
   // rtLog_Debug("adding object:%s", providerInfo->objectName().c_str());
   if ((p = cJSON_GetObjectItem(json, "properties")) != nullptr)
