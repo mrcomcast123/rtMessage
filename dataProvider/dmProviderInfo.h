@@ -37,6 +37,9 @@ public:
   inline std::vector<dmPropertyInfo> const& properties() const
     { return m_props; }
 
+  inline bool isList() const
+    { return m_isList; }
+
   dmPropertyInfo getPropertyInfo(char const* s) const;
 
 private:
@@ -44,10 +47,12 @@ private:
   void setProviderName(std::string const& name);
   void setObjectName(std::string const& name);
   void addProperty(dmPropertyInfo const& propInfo);
+  void setIsList(bool isList);
 
 private:
   std::string m_objectName;
   std::string m_providerName;
   std::vector<dmPropertyInfo> m_props;
+  bool m_isList;
 };
 #endif

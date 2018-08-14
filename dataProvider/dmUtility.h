@@ -16,6 +16,7 @@
 #define __DM_UTILITY_H__
 
 #include <string>
+#include "rtLog.h"
 
 class dmUtility
 {
@@ -73,6 +74,56 @@ public:
       t = s;
     return t;
   }
+
+  static bool isListIndex(const char* s)
+  {
+    rtLog_Warn("isListIndex %s", s);
+    if(!s)
+      return false;
+    int ln = (int)strlen(s);
+    if(ln == 0)
+      return false;
+    int i = ln - 1;
+    while(i >= 0)
+      if(s[i] == '.')
+        break;
+      else
+        i--;
+    rtLog_Warn("isListIndex %d %s", i, s+i+1);
+    return atoi(s+i+1) != 0;
+  }
+
+  //list property is in form [[STRING.]...]NUMBER.[STRING]
+  //NUMBER must be a valid number [1-n]
+  //example: Device.WiFi.EndPoint.1.Status
+  //example: Device.WiFi.EndPoint.9745.Status
+  //wildcard:  Device.WiFi.EndPoint.6.
+  //invalid formats: [[STRING.]...]NUMBER.NUMBER : ex: Device.WiFi.EndPoint.3.2
+  static bool parseListProperty(const std::string& s, uint32_t& index, std::string& name)
+  {
+    std::string::size_type idx = s.rfind('.');
+    if (idx != std::string::npos && idx>0)
+    {
+      std::string::size_type idx2 = s.rfind('.', idx-1);
+      if (idx2 != std::string::npos)
+      {
+        std::string last = s.substr(idx + 1);
+        std::string pathUpToLast = s.substr(0, idx);
+        std::string secondLast = pathUpToLast.substr(idx2 + 1);
+        uint32_t i = atoi(secondLast.c_str());
+        if (i && 
+            (last.size() == 0 || //wildcard
+             !atoi(last.c_str()))) //non number
+        {
+          index = i;
+          name = pathUpToLast.substr(0, idx2+1) + last;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+ 
 };
 
 #endif

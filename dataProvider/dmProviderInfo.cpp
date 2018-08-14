@@ -19,6 +19,7 @@ dmProviderInfo::dmProviderInfo()
   : m_objectName()
   , m_providerName()
   , m_props()
+  , m_isList(false)
 {
 }
 
@@ -37,6 +38,10 @@ void dmProviderInfo::addProperty(dmPropertyInfo const& propInfo)
   m_props.push_back(propInfo);
 }
 
+void dmProviderInfo::setIsList(bool isList)
+{
+  m_isList = isList;
+}
 
 dmPropertyInfo
 dmProviderInfo::getPropertyInfo(char const* propertyName) const
