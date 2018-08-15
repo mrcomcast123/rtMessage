@@ -115,7 +115,7 @@ public:
       {
         rtMessage item;
         rtMessage_GetMessageItem(res, "result", i, &item);
-        int status;
+        int status = 0;
         char const* param = nullptr;
         char const* value = nullptr;
         char const* status_msg = nullptr;
@@ -134,6 +134,11 @@ public:
           dmPropertyInfo propInfo = m_providerInfo->getPropertyInfo(param);
           m_results.addValue(propInfo, dmValue(value));
         }
+
+        if(status != 0)
+          m_results.setStatus(status);
+        if(status_msg != nullptr)
+          m_results.setStatusMsg(status_msg);
       }
 
       rtMessage_Release(res);
