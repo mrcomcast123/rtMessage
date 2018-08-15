@@ -180,7 +180,7 @@ private:
     char const* propertyName = nullptr;
     rtMessage_GetString(item, "name", &propertyName);
 
-    rtLog_Debug("decodeGetRequest property name=%s\n", (propertyName != nullptr ? propertyName : ""));
+    rtLog_Debug("decodeGetRequest property name=%s", (propertyName != nullptr ? propertyName : ""));
 
     std::shared_ptr<dmProviderInfo> objectInfo = db->getProviderByName(providerName);
     if (objectInfo)
@@ -190,15 +190,39 @@ private:
       {
         uint32_t index;
         std::string indexlessPropertyName;
-        dmUtility::parseListProperty(propertyName, index, indexlessPropertyName);
-
-        if (dmUtility::isWildcard(indexlessPropertyName.c_str()))
-          params = objectInfo->properties();
+        if (dmUtility::parseListProperty(propertyName, index, indexlessPropertyName))
+        {
+          if (dmUtility::isWildcard(indexlessPropertyName.c_str()))
+            params = objectInfo->properties();
+          else
+            params.push_back(objectInfo->getPropertyInfo(indexlessPropertyName.c_str()));
+          
+          for(int i = 0; i < (int)params.size(); ++i)
+            params[i].setIndex(index-1);//index from 1 based to 0 based
+        }
+        else if (dmUtility::isWildcard(propertyName))
+        {
+          auto itr = getProviders().find(providerName);
+          if (itr != getProviders().end())
+          {
+            size_t listSize = itr->second->getListSize();
+            std::vector<dmPropertyInfo> props = objectInfo->properties();
+            for (size_t i=0; i < listSize; ++i)
+            {
+              for(size_t j = 0; j < props.size(); ++j)
+                props[j].setIndex(i);
+              params.insert(params.end(), props.begin(), props.end());
+            }
+          }
+          else
+          {
+            rtLog_Debug("dmProviderHost::decodeGetRequest provider %s not found", providerName);
+          }
+        }
         else
-          params.push_back(objectInfo->getPropertyInfo(indexlessPropertyName.c_str()));
-        
-        for(int i = 0; i < (int)params.size(); ++i)
-          params[i].setIndex(index-1);//index from 1 based to 0 based
+        {
+            rtLog_Debug("dmProviderHost::decodeGetRequest invalid propertName %s", propertyName);
+        }
       }
       else
       {

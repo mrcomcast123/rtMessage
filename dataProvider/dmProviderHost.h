@@ -75,6 +75,8 @@ protected:
 
   dmProviderDatabase* db;
 
+  const std::map< std::string, std::unique_ptr<dmProvider> >& getProviders() const
+    { return m_providers; }
 private:
   std::map< std::string, std::unique_ptr<dmProvider> > m_providers;
   std::string m_providername;

@@ -33,6 +33,7 @@ public:
   virtual void doGet(std::vector<dmPropertyInfo> const& params, std::vector<dmQueryResult>& result);
   virtual void doSet(std::vector<dmNamedValue> const& params, std::vector<dmQueryResult>& result);
 
+  virtual size_t getListSize();
 protected:
   virtual void doGet(dmPropertyInfo const& info, dmQueryResult& result);
   virtual void doSet(dmPropertyInfo const& info, dmValue const& value, dmQueryResult& result);
@@ -43,7 +44,6 @@ protected:
   void onGet(std::string const& propertyName, getter_function func);
   void onSet(std::string const& propertyName, setter_function func);
 
-  virtual size_t getListSize();
 protected:
   std::string m_name;
 
