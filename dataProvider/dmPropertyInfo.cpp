@@ -19,7 +19,7 @@ dmPropertyInfo::dmPropertyInfo()
   , m_type(dmValueType_Unknown)
   , m_optional(false)
   , m_writable(false)
-  , m_index(0)
+  , m_index(-1)
 {
 }
 

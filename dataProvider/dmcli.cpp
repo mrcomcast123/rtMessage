@@ -12,25 +12,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "dmProviderDatabase.h"
-#include "dmQuery.h"
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <getopt.h>
-#include <algorithm>
 #include <iostream>
 #include <string>
-#include <cstring>
-
-#include <rtLog.h>
+#include <algorithm>
+#include "dmClient.h"
 
 void print_help()
 {
   printf("dmcli [OPTIONS] [COMMAND] [PARAMS]\n");
   printf("\t-d  --datamodel   Set datamodel directory\n");
   printf("\t-h  --help        Print this help and exit\n");
-  printf("\t-v  --verbose     Print verbose output\n");
+  printf("\t-v  --verbose     Print verbose output. same as -l 0\n");
+  printf("\t-l  --log-level   Set log level 0(verbose)-4\n");
   printf("\t-g  --get         Gets a list of parameters\n");
   printf("\t-s  --set         Sets a list of parameters\n");
   printf("\n");
@@ -40,12 +37,44 @@ void print_help()
   printf("\n");
 }
 
+//for non-list query, expect a single onResult or onError
+//for lists, 1 query per list item is made so expect onResult or onError for each item in the list
+class Notifier : public dmClientNotifier
+{
+public:
+  virtual void onResult(const dmQueryResult& result)
+  {
+    size_t maxParamLength = 0;
+    for (auto const& param : result.values())
+    {
+        if (param.fullName.length() > maxParamLength)
+          maxParamLength = param.fullName.length();
+    }
+
+    std::cout << std::endl;
+    for (auto const& param: result.values())
+    {
+      std::cout << "    ";
+      std::cout.width(maxParamLength);
+      std::cout << std::left;
+      std::cout << param.fullName;
+      std::cout << " = ";
+      std::cout << param.Value.toString();
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+  }
+  virtual void onError(int status, std::string const& message)
+  {
+    std::cout << std::endl << "    Error " << status << ": " << message << std::endl;
+  }
+};
 
 int main(int argc, char *argv[])
 {
   int exit_code = 0;
-  bool verbose = false;
   std::string param_list;
+  rtLogLevel log_level = RT_LOG_FATAL;
 
   #ifdef DEFAULT_DATAMODELDIR
   std::string datamodel_dir = DEFAULT_DATAMODELDIR;
@@ -71,10 +100,11 @@ int main(int argc, char *argv[])
       { "help", no_argument, 0, 'h' },
       { "datamode-dir", required_argument, 0, 'd' },
       { "verbose", no_argument, 0, 'v' },
+      { "log-level", no_argument, 0, 'l' },
       { 0, 0, 0, 0 }
     };
 
-    int c = getopt_long(argc, argv, "d:g:hs:v", long_options, &option_index);
+    int c = getopt_long(argc, argv, "d:g:hs:vl:", long_options, &option_index);
     if (c == -1)
       break;
 
@@ -100,7 +130,11 @@ int main(int argc, char *argv[])
         break;
 
       case 'v':
-        verbose = true;
+        log_level = RT_LOG_DEBUG;
+        break;
+
+      case 'l':
+        log_level = (rtLogLevel)atoi(optarg);
         break;
 
       case '?':
@@ -115,10 +149,7 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
-  if (verbose)
-    rtLog_SetLevel(RT_LOG_DEBUG);
-
-  dmProviderDatabase db(datamodel_dir);
+  dmClient* client = dmClient::create(datamodel_dir.c_str(), log_level);
 
   std::string delimiter = ",";
   std::string paramlist(param_list);
@@ -137,50 +168,13 @@ int main(int argc, char *argv[])
       return ::isspace(c);
     }), token.end());
 
-    std::unique_ptr<dmQuery> query(db.createQuery(op, token.c_str()));
-
-    if (!query || !query->exec())
-    {
-      exit_code = -1;
-    }
-    else
-    {
-      dmQueryResult const& results = query->results();
-      if (results.status() != 0)
-        std::cout << "ERROR:" << results.status() << std::endl;
-
-      // TODO: at this point, tool should probably exit(results.status()) to that
-      // shell scripts can check the return code
-
-      if (results.status() == 0)
-      {
-        size_t maxParamLength = 0;
-        for (auto const& param : results.values())
-        {
-          if (param.Info.fullName().length() > maxParamLength)
-            maxParamLength = param.Info.fullName().length();
-        }
-
-        std::cout << std::endl;
-        for (auto const& param: results.values())
-        {
-          std::cout << "    ";
-          std::cout.width(maxParamLength);
-          std::cout << param.Info.fullName();
-          std::cout << " = ";
-          std::cout << param.Value.toString();
-          std::cout << std::endl;
-        }
-        std::cout << std::endl;
-      }
-      else
-      {
-        std::cout << "Error: " << results.statusMsg() << std::endl;
-      }
-    } 
+    Notifier notifier;
+    client->runQuery(op, token, &notifier);
 
     begin = end == std::string::npos ? std::string::npos : end + 1;
   }
+
+  dmClient::destroy(client);
 
   return exit_code;
 }

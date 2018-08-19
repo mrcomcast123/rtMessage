@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include "dmQueryResult.h"
+#include "dmUtility.h"
 #include <rtError.h>
 #include <rtLog.h>
 
@@ -26,6 +27,7 @@ static const int kDefaultQueryResult = RT_OK;
 
 dmQueryResult::dmQueryResult()
   : m_status(kDefaultQueryResult)
+  , m_index(-1)
 {
 }
 
@@ -35,6 +37,7 @@ dmQueryResult::clear()
   m_status = kDefaultQueryResult;
   m_values.clear();
   m_statusMsg.clear();
+  m_index = -1;
 }
 
 void
@@ -70,6 +73,15 @@ dmQueryResult::addValue(dmPropertyInfo const& prop, dmValue const& val, int code
   {
     setStatusMsg(std::string(message));
   }
+}
+
+void dmQueryResult::updateFullNames()
+{
+  for (auto& param : m_values)
+    if(m_index > 0)
+      param.fullName = dmUtility::getFullNameWithIndex(param.Info.fullName(), m_index);
+    else
+      param.fullName = param.Info.fullName();
 }
 
 dmQueryResult::Param::Param(int code, char const* msg, dmValue const& val, dmPropertyInfo const& info)

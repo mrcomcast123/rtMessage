@@ -43,6 +43,9 @@ public:
   inline dmValueType type() const
     { return m_type; }
 
+  operator uint32_t() const
+    { return m_value.uint32Value; }
+
 private:
   union value {
     value() { }

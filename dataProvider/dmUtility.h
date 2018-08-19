@@ -16,6 +16,8 @@
 #define __DM_UTILITY_H__
 
 #include <string>
+#include <sstream>
+#include <string.h>
 #include "rtLog.h"
 
 class dmUtility
@@ -27,7 +29,7 @@ public:
     std::size_t position = str.find_last_of(".\\");
 
     parameter[0]= '\0';
-    std::strcat(parameter, str.substr(position + 1).c_str());
+    strcat(parameter, str.substr(position + 1).c_str());
     str.clear();
   }
 
@@ -77,7 +79,6 @@ public:
 
   static bool isListIndex(const char* s)
   {
-    rtLog_Warn("isListIndex %s", s);
     if(!s)
       return false;
     int ln = (int)strlen(s);
@@ -89,7 +90,6 @@ public:
         break;
       else
         i--;
-    rtLog_Warn("isListIndex %d %s", i, s+i+1);
     return atoi(s+i+1) != 0;
   }
 
@@ -122,6 +122,19 @@ public:
       }
     }
     return false;
+  }
+
+  //basic list support supporting a single list object as the last object in the param full name
+  static std::string getFullNameWithIndex(const std::string& name, int index)
+  {
+    if(index < 1)
+      return name;
+
+    std::string first = trimProperty(name);
+    std::string last = trimPropertyName(name);
+    std::stringstream ss;
+    ss << first << "." << index << "." << last;
+    return ss.str();
   }
  
 };

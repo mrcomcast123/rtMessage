@@ -115,7 +115,8 @@ public:
       {
         rtMessage item;
         rtMessage_GetMessageItem(res, "result", i, &item);
-        int status;
+        int status = 0;
+        int index = -1;
         char const* param = nullptr;
         char const* value = nullptr;
         char const* status_msg = nullptr;
@@ -124,6 +125,8 @@ public:
           rtLog_Debug("failed to get 'name' from paramter");
         if (rtMessage_GetString(item, "value", &value) != RT_OK)
           rtLog_Debug("failed to get 'value' from parameter");
+        if (rtMessage_GetInt32(item, "index", &index) != RT_OK)
+          rtLog_Error("failed to get 'index' from response");
         if (rtMessage_GetInt32(item, "status", &status) != RT_OK)
           rtLog_Error("failed to get 'status' from response");
         if (rtMessage_GetString(item, "status_msg", &status_msg) != RT_OK)
@@ -134,7 +137,17 @@ public:
           dmPropertyInfo propInfo = m_providerInfo->getPropertyInfo(param);
           m_results.addValue(propInfo, dmValue(value));
         }
+
+        if(index > 0)
+          m_results.setIndex(index);
+
+        if(status != 0)
+          m_results.setStatus(status);
+        if(status_msg != nullptr)
+          m_results.setStatusMsg(status_msg);
       }
+
+      m_results.updateFullNames();
 
       rtMessage_Release(res);
       rtMessage_Release(req);
