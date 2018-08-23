@@ -18,6 +18,7 @@
 #include "dmPropertyInfo.h"
 #include "dmQueryResult.h"
 
+#include <functional>
 #include <map>
 #include <vector>
 

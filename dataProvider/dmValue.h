@@ -37,6 +37,7 @@ public:
   dmValue(uint64_t n);
   dmValue(float f);
   dmValue(double d);
+  dmValue(bool b);
 
   std::string toString() const;
 
@@ -59,6 +60,7 @@ private:
     value(uint64_t n) : uint64Value(n) { }
     value(float f) : singleValue(f) { }
     value(double d) : doubleValue(d) { }
+    value(bool b) : booleanValue(b) { }
     uint8_t     uint8Value;
     uint16_t    uint16Value;
     uint32_t    uint32Value;
@@ -69,6 +71,7 @@ private:
     int64_t     int64Value;
     float       singleValue;
     double      doubleValue;
+    bool        booleanValue;
   };
 
   dmValueType   m_type;

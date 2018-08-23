@@ -29,6 +29,7 @@ public:
 class dmClient
 {
 public:
+  virtual ~dmClient() { }
   virtual bool runQuery(dmProviderOperation operation, std::string const& parameter, dmClientNotifier* notifier) = 0;
 
   static dmClient* create(std::string const& datamodelDir, rtLogLevel logLevel = RT_LOG_WARN);

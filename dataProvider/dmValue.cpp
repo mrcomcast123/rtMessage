@@ -39,8 +39,13 @@ namespace
     { "single", dmValueType_Single },
     { "string", dmValueType_String },
     { "double", dmValueType_Double },
+    { "bool", dmValueType_Boolean }
   };
 }
+
+dmValue::dmValue(bool b)
+  : m_type(dmValueType_Boolean)
+  , m_value(b) { }
 
 dmValue::dmValue(std::string const& s)
   : m_type(dmValueType_String)
@@ -96,6 +101,9 @@ dmValue::toString() const
   std::stringstream buff;
   switch (m_type)
   {
+    case dmValueType_Boolean:
+      buff << (m_value.booleanValue ? "true" : "false");
+      break;
     case dmValueType_Unknown:
       buff << "(null)";
       break;
