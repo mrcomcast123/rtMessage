@@ -93,7 +93,8 @@ if (BUILD_DATAPROVIDER_LIB)
     dataProvider/dmQueryResult.cpp
     dataProvider/dmProvider.cpp
     dataProvider/dmError.cpp
-    dataProvider/dmValue.cpp)
+    dataProvider/dmValue.cpp
+    dataProvider/dmClient.cpp)
   add_dependencies(
     dataProvider
     rtMessage)

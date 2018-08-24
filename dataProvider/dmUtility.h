@@ -16,6 +16,8 @@
 #define __DM_UTILITY_H__
 
 #include <string>
+#include <sstream>
+#include <string.h>
 #include "rtLog.h"
 
 class dmUtility
@@ -27,7 +29,7 @@ public:
     std::size_t position = str.find_last_of(".\\");
 
     parameter[0]= '\0';
-    std::strcat(parameter, str.substr(position + 1).c_str());
+    strcat(parameter, str.substr(position + 1).c_str());
     str.clear();
   }
 
@@ -120,6 +122,19 @@ public:
       }
     }
     return false;
+  }
+
+  //basic list support supporting a single list object as the last object in the param full name
+  static std::string getFullNameWithIndex(const std::string& name, int index)
+  {
+    if(index < 1)
+      return name;
+
+    std::string first = trimProperty(name);
+    std::string last = trimPropertyName(name);
+    std::stringstream ss;
+    ss << first << "." << index << "." << last;
+    return ss.str();
   }
  
 };

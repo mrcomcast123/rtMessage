@@ -38,7 +38,7 @@ public:
     #ifdef DEFAULT_DATAMODELDIR
     std::string datamodel_dir = DEFAULT_DATAMODELDIR;
     #else
-    std::string datamode_dir;
+    std::string datamodel_dir;
     #endif
 
     db = new dmProviderDatabase(datamodel_dir);

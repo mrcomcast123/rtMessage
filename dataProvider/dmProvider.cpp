@@ -52,6 +52,8 @@ dmProvider::doGet(std::vector<dmPropertyInfo> const& params, std::vector<dmQuery
     }
     else
     {
+      if(propInfo.index() != -1)
+        temp.setIndex(propInfo.index()+1);
       result.push_back(temp);
     }
 
@@ -90,6 +92,8 @@ dmProvider::doSet(std::vector<dmNamedValue> const& params, std::vector<dmQueryRe
     }
     else
     {
+      if(value.info().index() != -1)
+        temp.setIndex(value.info().index()+1);
       result.push_back(temp);
     }
 

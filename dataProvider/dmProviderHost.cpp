@@ -332,6 +332,7 @@ private:
         rtMessage_SetString(msg, "value", param.Value.toString().c_str());
       }
 
+      rtMessage_SetInt32(msg, "index", result.index());
       rtMessage_SetInt32(msg, "status", statusCode);
       rtMessage_SetString(msg, "status_msg", statusMessage.c_str());
       rtMessage_AddMessage(res, "result", msg);
