@@ -28,6 +28,7 @@ enum dmValueType
   dmValueType_String,
   dmValueType_Single,
   dmValueType_Double,
+  dmValueType_Boolean,
   dmValueType_Unknown
 };
 
