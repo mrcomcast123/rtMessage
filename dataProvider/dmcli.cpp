@@ -70,6 +70,33 @@ public:
   }
 };
 
+void splitParams(std::string const& params, std::vector<std::string>& tokens)
+{
+  size_t first = 0;
+  size_t last = 0;
+  bool inbracket;
+  for(last = 0; last < params.size(); ++last)
+  {
+    if(params[last] == '{')
+      inbracket = true;
+    else if(params[last] == '}')
+      inbracket = false;
+    else if(params[last] == ',' && !inbracket)
+    {
+      tokens.push_back(params.substr(first, last-first));
+      first = last+1;
+    }
+  }
+  if(last == params.size() && last - first > 1)
+      tokens.push_back(params.substr(first, last-first));
+
+  for(size_t i = 0; i < tokens.size(); ++i)
+  {
+    //trim whitespace
+    std::cout << "token " << i << " = " << tokens[i] << std::endl;
+  }
+}
+
 int main(int argc, char *argv[])
 {
   int exit_code = 0;
@@ -151,27 +178,13 @@ int main(int argc, char *argv[])
 
   dmClient* client = dmClient::create(datamodel_dir.c_str(), log_level);
 
-  std::string delimiter = ",";
-  std::string paramlist(param_list);
-  std::string token;
+  std::vector<std::string> tokens;
+  splitParams(param_list, tokens);
 
-  size_t begin = 0;
-  size_t end = 0;
-
-  while (begin != std::string::npos)
+  for(auto token: tokens)
   {
-    // split token on ',' and remove whitespace
-    end = param_list.find(',', begin);
-    std::string token = param_list.substr(begin, (end - begin));
-    token.erase(std::remove_if(token.begin(), token.end(), [](char c)
-    {
-      return ::isspace(c);
-    }), token.end());
-
     Notifier notifier;
     client->runQuery(op, token, &notifier);
-
-    begin = end == std::string::npos ? std::string::npos : end + 1;
   }
 
   dmClient::destroy(client);

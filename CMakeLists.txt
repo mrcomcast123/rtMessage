@@ -94,6 +94,7 @@ if (BUILD_DATAPROVIDER_LIB)
     dataProvider/dmProvider.cpp
     dataProvider/dmError.cpp
     dataProvider/dmValue.cpp
+    dataProvider/dmObject.cpp
     dataProvider/dmClient.cpp)
   add_dependencies(
     dataProvider
