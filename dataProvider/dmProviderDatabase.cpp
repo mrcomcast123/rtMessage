@@ -333,7 +333,7 @@ dmProviderDatabase::isWritable(char const* param, char const* provider)
 std::shared_ptr<dmProviderInfo>
 dmProviderDatabase::getProviderByObjectName(std::string const& s) const
 {
-  rtLog_Info("get provider by objectname:%s", s.c_str());
+  //rtLog_Info("get provider by objectname:%s", s.c_str());
 
   std::string objectName;
   if (dmUtility::isWildcard(s.c_str()))
@@ -401,6 +401,42 @@ dmProviderDatabase::getParameters(char const* provider) const
 }
 #endif
 
+std::shared_ptr<dmProviderInfo>
+dmProviderDatabase::getProviderByQueryString(std::string const& s) const
+{
+  rtLog_Warn("getProviderByQueryString %s", s.c_str());
+
+  std::string query = s;
+  if (dmUtility::isWildcard(query.c_str()))
+    query = dmUtility::trimWildcard(query);
+  else
+    query = dmUtility::trimProperty(query);
+
+  if (dmUtility::isListIndex(query.c_str()))
+    query = dmUtility::trimProperty(query);//trim again to remove index
+
+  rtLog_Warn("getProviderByQueryString after trimming %s", query.c_str());
+
+  dmUtility::QueryParser qp(query);
+  if(qp.getNodeCount() == 0)
+    return nullptr;
+
+  rtLog_Warn("getProviderByQueryString to %s", qp.getNode(qp.getNodeCount()-1).fullName.c_str());
+
+  std::shared_ptr<dmProviderInfo> info = getProviderByObjectName(qp.getNode(qp.getNodeCount()-1).fullName);
+
+  if (info)
+  {
+    rtLog_Warn("getProviderByQueryString found info");
+    return info;
+  }
+  else
+  {
+    rtLog_Warn("getProviderByQueryString failed to find info");
+    return nullptr;
+  }
+}
+
 dmQuery*
 dmProviderDatabase::createQuery() const
 {
@@ -413,28 +449,20 @@ dmProviderDatabase::createQuery(dmProviderOperation op, char const* queryString)
   if (!queryString)
     return nullptr;
 
-  std::string objectName(queryString);
+  rtLog_Warn("createQuery %s", queryString);
 
-  if (dmUtility::isWildcard(objectName.c_str()))
-    objectName = dmUtility::trimWildcard(objectName);
-  else
-    objectName = dmUtility::trimProperty(objectName);
+  std::shared_ptr<dmProviderInfo> info = getProviderByQueryString(queryString);
 
-  if (dmUtility::isListIndex(objectName.c_str()))
-    objectName = dmUtility::trimProperty(objectName);//trim again to remove index
-
-  std::shared_ptr<dmProviderInfo> providerInfo = getProviderByObjectName(objectName);
-
-  if (!providerInfo)
+  if(!info)
   {
-    rtLog_Warn("failed to find provider for query string:%s", objectName.c_str());
+    rtLog_Warn("createQuery failed to find provider for query string:%s", queryString);
     return nullptr;
   }
 
   dmQueryImpl* query = new dmQueryImpl();
   bool status = query->setQueryString(op, queryString);
   if (status)
-    query->setProviderInfo(providerInfo);
+    query->setProviderInfo(info);
   return query;
 }
 

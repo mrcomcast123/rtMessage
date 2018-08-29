@@ -33,6 +33,7 @@ public:
   dmQuery* createQuery(dmProviderOperation op, char const* s) const;
   std::shared_ptr<dmProviderInfo> getProviderByName(std::string const& s) const;
   std::shared_ptr<dmProviderInfo> getProviderByObjectName(std::string const& s) const;
+  std::shared_ptr<dmProviderInfo> getProviderByQueryString(std::string const& s) const;
 
 private:
   void loadFromDir(std::string const& dir);

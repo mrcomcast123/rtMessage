@@ -16,12 +16,14 @@
 #define __DM_PROVIDER_H__
 
 #include "dmPropertyInfo.h"
-#include "dmQueryResult.h"
+#include "dmProviderInfo.h"
+#include "dmProviderDatabase.h"
+#include "dmObject.h"
 
 #include <map>
 #include <vector>
 
-class dmProvider
+class dmProvider 
 {
 public:
   dmProvider();
@@ -30,31 +32,24 @@ public:
   inline std::string const& name() const
     { return m_name; }
 
-  virtual void doGet(std::vector<dmPropertyInfo> const& params, std::vector<dmQueryResult>& result);
-  virtual void doSet(std::vector<dmNamedValue> const& params, std::vector<dmQueryResult>& result);
+  dmObject* getRootObject()
+  { return m_root; }
 
-protected:
-  virtual void doGet(dmPropertyInfo const& info, dmQueryResult& result);
-  virtual void doSet(dmPropertyInfo const& info, dmValue const& value, dmQueryResult& result);
-
-  using getter_function = std::function<void (dmPropertyInfo const& info, dmQueryResult& result)>;
-  using setter_function = std::function<void (dmPropertyInfo const& info, dmValue const& value, dmQueryResult& result)>;
-
-  void onGet(std::string const& propertyName, getter_function func);
-  void onSet(std::string const& propertyName, setter_function func);
-
-  virtual size_t getListSize();
-protected:
-  std::string m_name;
+  std::shared_ptr<dmProviderInfo> getInfo()
+    { return m_info; }
 
 private:
-  struct provider_functions
+/*
+  void finalize(dmProviderDatabase* db)
   {
-    getter_function getter;
-    setter_function setter;
-  };
-
-  std::map< std::string, provider_functions > m_provider_functions;
+    m_info = db->getProviderByObjectName(m_name);
+    m_root->finalize(db);
+  }
+*/
+  std::string m_name;
+  std::shared_ptr<dmProviderInfo> m_info;
+  dmObject* m_root;
+  friend class dmProviderHost;
 };
 
 #endif

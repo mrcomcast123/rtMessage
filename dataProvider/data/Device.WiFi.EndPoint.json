@@ -1,6 +1,6 @@
 {
   "name": "Device.WiFi.EndPoint",
-  "provider" : "wifi",
+  "provider" : "netsrvmgr",
   "is_list" : true,
   "properties":
     [

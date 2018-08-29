@@ -17,7 +17,7 @@
 #include "dmProvider.h"
 #include <unistd.h>
 
-class MyProvider : public dmProvider
+class MyProvider : public dmObject
 {
 public:
   MyProvider()
@@ -70,8 +70,7 @@ int main()
   dmProviderHost* host = dmProviderHost::create();
   host->start();
 
-  //host->registerProvider(std::unique_ptr<dmProvider>(new MyProvider("general")));
-  host->registerProvider("Device.DeviceInfo", std::unique_ptr<dmProvider>(new MyProvider()));
+  host->registerProvider("Device.DeviceInfo", new MyProvider());
 
   while (true)
   {

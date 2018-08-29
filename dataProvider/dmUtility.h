@@ -136,7 +136,83 @@ public:
     ss << first << "." << index << "." << last;
     return ss.str();
   }
- 
+
+//  static std::string getObjectIdFromInstanceId(const std::string& instanceId)
+ // { 
+  //}
+
+class QueryParser
+{
+public:
+  struct Node
+  {
+    std::string name; //e.g. EndPoint
+    std::string fullName; //e.g. Device.WiFi.EndPoint
+    std::string instanceName; //e.g. Device.WiFi.EndPoint.1 or, more complex, Device.WiFi.EndPoint.1.Foo.3.Blah
+    int index;
+  };
+
+  QueryParser(const std::string& p)
+  {
+    parse(p);
+  }
+  void parse(const std::string& p)
+  {
+    using namespace std;
+    if(p.length() == 0)
+      return;
+    size_t n1 = 0;
+    size_t n2 = p.find('.');
+    Node node;
+    node.index = 0;
+    string fullName;
+    while(true)
+    {
+      string token = p.substr(n1, n2-n1);
+      int index = atoi(token.c_str());
+      if(index)
+      {
+        if(nodes.size() == 0)
+        {
+          rtLog_Warn("Invalid paramter");
+          return;
+        }
+        nodes.back().index = index;
+
+        std::stringstream ss;
+        ss << nodes.back().instanceName << "." << index;
+        nodes.back().instanceName = ss.str();
+      }
+      else
+      {
+        if(!fullName.empty())
+          fullName += ".";
+        fullName += token;
+        node.fullName = fullName;
+        node.name = token;
+        node.instanceName = nodes.size() == 0 ? fullName : nodes.back().instanceName + "." + token;
+        nodes.push_back(node);
+      }
+      if(n2 == string::npos || n2 > p.length()-1)
+        break;
+      n1 = n2+1;
+      n2 = p.find('.', n1);
+    }
+  }
+  size_t getNodeCount() const { return nodes.size(); }
+  const QueryParser::Node& getNode(int i) const  { return nodes[i]; }
+
+  static void test(const std::string& p)
+  {
+    rtLog_Warn("QueryParserTest %s", p.c_str());
+    QueryParser q(p);
+    for(int i = 0; i < q.getNodeCount(); ++i)
+      rtLog_Warn("QueryParserTest node %d: %s, %s, %s, %d", i, q.getNode(i).instanceName.c_str(), q.getNode(i).fullName.c_str(), q.getNode(i).name.c_str(), q.getNode(i).index);
+  }
+private:
+  std::vector<Node> nodes;
+};
+
 };
 
 #endif
