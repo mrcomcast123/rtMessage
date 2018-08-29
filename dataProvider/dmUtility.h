@@ -198,19 +198,6 @@ public:
       n1 = n2+1;
       n2 = p.find('.', n1);
     }
-    /*
-    //check if the last token is a value setter and remove value
-    if(nodes.size() > 0)
-    {
-      size_t n = nodes.back().name.find('=');
-      if(n != string::npos)
-      {
-rtLog_Warn("SETTER !!! %s", nodes.back().name.c_str());
-        nodes.back().name = nodes.back().name.substr(0,n);
-rtLog_Warn("SETTER --> %s", nodes.back().name.c_str());
-      }
-    }
-    */
   }
   size_t getNodeCount() const { return nodes.size(); }
   const QueryParser::Node& getNode(int i) const  { return nodes[i]; }
