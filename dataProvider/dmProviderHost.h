@@ -18,6 +18,7 @@
 #include "dmPropertyInfo.h"
 #include "dmQueryResult.h"
 #include "dmProviderDatabase.h"
+#include "dmObject.h"
 
 #include <map>
 #include <memory>
@@ -62,21 +63,24 @@ public:
   static dmProviderHost* create();
 
 public:
-  bool registerProvider(char const* object, std::unique_ptr<dmProvider> provider);
-
+  bool registerProvider(std::string const& fullName, dmObject* root);
+  bool addObject(std::string const& fullInstanceName/*including list index*/, dmObject* obj);
+  void printTree();
 protected:
   virtual bool providerRegistered(std::string const& name) = 0;
 
   void doGet(std::string const& providerName, std::vector<dmPropertyInfo> const& params,
-    std::vector<dmQueryResult>& result);
+    std::vector<dmQueryResult>& result, std::string& propName);
 
   void doSet(std::string const& providerName, std::vector<dmNamedValue> const& params,
-    std::vector<dmQueryResult>& result);
+    std::vector<dmQueryResult>& result, std::string& propName);
 
   dmProviderDatabase* db;
-
+  std::shared_ptr<dmProvider> getProvider(std::string const& param) const;
+  dmObject* getObject(std::string const& propName) const;
 private:
-  std::map< std::string, std::unique_ptr<dmProvider> > m_providers;
+  void printTree(dmObject* p, int curdep, int index);
+  std::map< std::string, std::shared_ptr<dmProvider> > m_providers;
   std::string m_providername;
 };
 
